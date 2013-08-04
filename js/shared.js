@@ -225,10 +225,12 @@
 
   // histogram & trends
   kbn.interval_to_seconds = function(string) {
-    var matches = string.match(/(\d+)([Mwdhmsy])/);
+    var matches = string.match(/(\d+)([Mwdhmsyq])/);
     switch (matches[2]) {
     case 'y': 
       return matches[1]*31536000;
+    case 'q':
+      return matches[1]*7776000;
     case 'M': 
       return matches[1]*2592000;
     case 'w': 

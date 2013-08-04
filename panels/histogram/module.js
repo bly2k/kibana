@@ -69,6 +69,12 @@ angular.module('kibana.histogram', [])
     'y-axis'    : true,
     percentage  : false,
     interactive : true,
+    alias: "",
+    stackCharts : [], //array of { mode: "count", time_field: "@timestamp", value_field: "", alias: "", queryString: "" }
+    decimals: 0,
+    decimalSeparator: ".",
+    commaSeparator: ",",
+    formatString: "{0}"
   };
 
   _.defaults($scope.panel,_d);
@@ -82,6 +88,79 @@ angular.module('kibana.histogram', [])
 
   };
 
+  $scope.addStackChart = function() {
+    $scope.panel.stackCharts.push({ mode: $scope.panel.mode, time_field: $scope.panel.time_field, value_field: null, alias: null, queryString: null });
+    $scope.set_refresh(true);
+  }
+
+  $scope.getFacetInterval = function (interval) {
+    var matches = interval.match(/(\d+)([Mwdhmsyq])/);
+    switch (matches[2]) {
+      case "M":
+        return "month";
+      case "q":
+        return "quarter";
+      default:
+        return interval;
+    }
+  }
+
+  $scope.buildFacet = function(id, mode, time_field, value_field, interval, facetFilter) {
+    var facet = $scope.ejs.DateHistogramFacet(id);
+      
+    if(mode === 'count') {
+      facet = facet.field(time_field);
+    } else {
+      if(_.isNull(value_field)) {
+        $scope.panel.error = "In " + mode + " mode, a field must be specified";
+        return null;
+      }
+      facet = facet.keyField(time_field).valueField(value_field);
+    }
+    facet = facet.interval($scope.getFacetInterval(interval)).facetFilter(facetFilter);
+    return facet;
+  }
+
+  $scope.getStackChartById = function (id) {
+    if (id == 0) return { mode: $scope.panel.mode, time_field: $scope.panel.time_field, value_field: $scope.panel.value_field, alias: $scope.panel.alias, queryString: $scope.panel.queries.queryString };
+    id = id - 1;
+    return (id >= 0 && id < $scope.panel.stackCharts.length) ? $scope.panel.stackCharts[id] : null;
+  }
+
+  $scope.hasStackCharts = function () {
+    return $scope.panel.stackCharts.length > 0;
+  }
+
+  $scope.hasNoQueries = function () {
+    return $scope.panel.queries.mode == "none" || $scope.panel.queries.mode == "index";
+  }
+
+  $scope.getStackChartAlias = function (id) {
+    var item = $scope.getStackChartById(id);
+    if (item == null) return "";
+    
+    var result = item.alias;
+    if (result != null && result != "") return result;
+
+    var valueField = item.mode == "count" ? item.time_field : item.value_field;
+    if (valueField == null || valueField == "") valueField = item.time_field;
+
+    return item.mode + " " + valueField;
+  }
+
+  $scope.getQueryInfo = function (id) {
+    if (!$scope.hasStackCharts())
+    {
+      var globalAlias = querySrv.list[id];
+      var alias = $scope.getStackChartAlias(0);
+      if (globalAlias.alias != null && globalAlias.alias != "") alias += "-" + globalAlias.alias;
+      return { alias: alias, color: globalAlias.color };
+    }
+    else {
+      return { alias: $scope.getStackChartAlias(id), color: querySrv.colorAt(id) };
+    }
+  }
+
   $scope.get_data = function(segment,query_id) {
     delete $scope.panel.error;
 
@@ -89,7 +168,6 @@ angular.module('kibana.histogram', [])
     if(dashboard.indices.length === 0) {
       return;
     }
-
 
     var _range = $scope.range = filterSrv.timeRange('min');
     
@@ -102,28 +180,36 @@ angular.module('kibana.histogram', [])
     var _segment = _.isUndefined(segment) ? 0 : segment;
     var request = $scope.ejs.Request().indices(dashboard.indices[_segment]);
 
-    $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
-    // Build the query
-    _.each($scope.panel.queries.ids, function(id) {
-      var query = $scope.ejs.FilteredQuery(
-        querySrv.getEjsObj(id),
-        filterSrv.getBoolFilter(filterSrv.ids)
-      );
+    if (!$scope.hasStackCharts() && !$scope.hasNoQueries()) {
+      $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
 
-      var facet = $scope.ejs.DateHistogramFacet(id);
-      
-      if($scope.panel.mode === 'count') {
-        facet = facet.field($scope.panel.time_field);
-      } else {
-        if(_.isNull($scope.panel.value_field)) {
-          $scope.panel.error = "In " + $scope.panel.mode + " mode a field must be specified";
-          return;
-        }
-        facet = facet.keyField($scope.panel.time_field).valueField($scope.panel.value_field);
-      }
-      facet = facet.interval($scope.panel.interval).facetFilter($scope.ejs.QueryFilter(query));
+      // Build the query
+      _.each($scope.panel.queries.ids, function(id) {
+        var facetFilter = querySrv.getFacetFilterByQueryId(filterSrv, id, $scope.panel.queries.queryString);
+        var facet = $scope.buildFacet(id, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.interval, facetFilter);
+        if (facet == null) return;
+        request = request.facet(facet).size(0);
+      });
+    }
+    else {
+      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+
+      $scope.panel.queries.ids = [0];
+      var facet = $scope.buildFacet(0, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.interval, facetFilter);
+      if (facet == null) return;
       request = request.facet(facet).size(0);
-    });
+
+      var stackId = 1;
+      _.each($scope.panel.stackCharts, function (item) {
+        var qs = _.isUndefined(item.queryString) ? null : item.queryString;
+        var filter = (qs == null || qs == "") ? facetFilter : querySrv.getFacetFilter(filterSrv, $scope.panel.queries, qs);
+        var facet = $scope.buildFacet(stackId, item.mode, item.time_field, item.value_field, $scope.panel.interval, filter);
+        if (facet == null) return;
+        $scope.panel.queries.ids.push(stackId);
+        stackId++;
+        request = request.facet(facet).size(0);
+      });
+    }
 
     // Populate the inspector panel
     $scope.populate_modal(request);
@@ -153,7 +239,6 @@ angular.module('kibana.histogram', [])
       if($scope.query_id === query_id && 
         _.intersection(facetIds,$scope.panel.queries.ids).length === $scope.panel.queries.ids.length
         ) {
-
         var i = 0;
         var data, hits;
 
@@ -173,10 +258,17 @@ angular.module('kibana.histogram', [])
             hits = $scope.data[i].hits;
           }
 
+          //get the right statistic for stacked charts
+          var statisticField = $scope.panel.mode;
+          if ($scope.hasStackCharts()) {
+            var item = $scope.getStackChartById(id);
+            if (item != null) statisticField = item.mode;
+          }
+
           // Assemble segments
           var segment_data = [];
           _.each(v.entries, function(v, k) {
-            segment_data.push([v.time,v[$scope.panel.mode]]);
+            segment_data.push([v.time,v[statisticField]]);
             hits += v.count; // The series level hits counter
             $scope.hits += v.count; // Entire dataset level hits counter
           });
@@ -185,7 +277,7 @@ angular.module('kibana.histogram', [])
           // Create the flot series object
           var series = { 
             data: {
-              info: querySrv.list[id],
+              info: $scope.getQueryInfo(id),
               data: data,
               hits: hits
             },
@@ -295,7 +387,8 @@ angular.module('kibana.histogram', [])
           .script("common/lib/panels/jquery.flot.time.js")
           .script("common/lib/panels/jquery.flot.stack.js")
           .script("common/lib/panels/jquery.flot.selection.js")
-          .script("common/lib/panels/timezone.js");
+          .script("common/lib/panels/timezone.js")
+          .script("common/lib/jquery.number.min.js");
                     
         // Populate element. Note that jvectormap appends, does not replace.
         scripts.wait(function(){
@@ -387,10 +480,14 @@ angular.module('kibana.histogram', [])
 
       elem.bind("plothover", function (event, pos, item) {
         if (item) {
+          var formatted = $.number(item.datapoint[1], scope.panel.decimals, scope.panel.decimalSeparator, scope.panel.commaSeparator);
+          if (!_.isUndefined(scope.panel.formatString) && scope.panel.formatString != "")
+            formatted = scope.panel.formatString.replace(/\{0\}/g, formatted);
+
           tt(pos.pageX, pos.pageY,
             "<div style='vertical-align:middle;display:inline-block;background:"+
             item.series.color+";height:15px;width:15px;border-radius:10px;'></div> "+
-            item.datapoint[1].toFixed(0) + " @ " + 
+            formatted + " @ " + 
             moment(item.datapoint[0]).format('MM/DD HH:mm:ss'));
         } else {
           $("#pie-tooltip").remove();

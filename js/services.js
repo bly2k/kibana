@@ -175,7 +175,7 @@ angular.module('kibana.services', [])
       var _query = {
         query: '*',
         alias: '',
-        color: colorAt(_id),
+        color: self.colorAt(_id),
         pin: false,
         id: _id,
         type: 'lucene'
@@ -231,9 +231,55 @@ angular.module('kibana.services', [])
       return _.difference(self.ids,_.pluck(_.where(self.list,{pin:true}),'id'));
     case 'selected':
       return _.intersection(self.ids,config.ids);
+    case 'none':
+    case 'index':
+      return [];
     default:
       return self.ids;
     }
+  };
+
+  this.getFacetFilter = function (filterSrv, queries, queryString) {
+    var facetQuery = ejs.MatchAllQuery();
+
+    // This could probably be changed to a BoolFilter 
+    var queryIds = self.idsByMode(queries);
+    if (queryIds != null && queryIds.length > 0) facetQuery = ejs.BoolQuery();
+    _.each(queryIds, function (id)
+    {
+      facetQuery = facetQuery.should(self.getEjsObj(id));
+    });
+
+    var facetFilter = ejs.BoolFilter().must(ejs.MatchAllFilter());
+    
+    if (queries.mode != "index") 
+      facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
+
+    if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
+      var qs = ejs.QueryStringQuery(queryString);
+      facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+    }
+
+    facetFilter = ejs.QueryFilter(ejs.FilteredQuery(facetQuery, facetFilter));
+
+    return facetFilter;
+  };
+
+  this.getFacetFilterByQueryId = function (filterSrv, id, queryString) {
+    var facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
+
+    if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
+      var qs = ejs.QueryStringQuery(queryString);
+      facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+    }
+
+    facetFilter = ejs.QueryFilter(
+      ejs.FilteredQuery(
+        self.getEjsObj(id),
+        facetFilter
+      ));
+
+    return facetFilter;
   };
 
   var nextId = function() {
@@ -244,7 +290,7 @@ angular.module('kibana.services', [])
     }
   };
 
-  var colorAt = function(id) {
+  this.colorAt = function(id) {
     return self.colors[id % self.colors.length];
   };
 

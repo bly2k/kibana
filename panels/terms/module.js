@@ -46,7 +46,13 @@ angular.module('kibana.terms', [])
     arrangement : 'horizontal',
     chart       : 'bar',
     counter_pos : 'above',
-    spyable     : true
+    spyable     : true,
+    mode: "count",
+    valueField: "",
+    decimals: 0,
+    decimalSeparator: ".",
+    commaSeparator: ",",
+    formatString: "{0}"
   };
   _.defaults($scope.panel,_d);
 
@@ -60,62 +66,93 @@ angular.module('kibana.terms', [])
 
   };
 
+  $scope.getStatisticLabel = function()
+  {
+    var mode = $scope.panel.mode;
+    return mode.charAt(0).toUpperCase() + mode.slice(1)
+  }
+
   $scope.get_data = function(segment,query_id) {
+    delete $scope.panel.error;
+
     // Make sure we have everything for the request to complete
     if(dashboard.indices.length === 0) {
       return;
     } 
 
     $scope.panelMeta.loading = true;
-    var request,
-      results,
-      boolQuery;
 
-    request = $scope.ejs.Request().indices(dashboard.indices);
+    var request = $scope.ejs.Request().indices(dashboard.indices);
 
     $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
-    // This could probably be changed to a BoolFilter 
-    boolQuery = $scope.ejs.BoolQuery();
-    _.each($scope.panel.queries.ids,function(id) {
-      boolQuery = boolQuery.should(querySrv.getEjsObj(id));
-    });
 
-    // Terms mode
-    request = request
-      .facet($scope.ejs.TermsFacet('terms')
-        .field($scope.panel.field)
-        .size($scope.panel.size)
-        .order($scope.panel.order)
-        .exclude($scope.panel.exclude)
-        .facetFilter($scope.ejs.QueryFilter(
-          $scope.ejs.FilteredQuery(
-            boolQuery,
-            filterSrv.getBoolFilter(filterSrv.ids)
-            )))).size(0);
+    var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+
+    var mode = $scope.panel.mode;
+
+    switch (mode)
+    {
+      case "count":
+        // Terms mode
+        request = request
+         .facet($scope.ejs.TermsFacet('terms')
+          .field($scope.panel.field)
+          .size($scope.panel.size)
+          .order($scope.panel.order)
+          .exclude($scope.panel.exclude)
+          .facetFilter(facetFilter)).size(0);
+        break;
+
+      default:
+        if ($scope.panel.valueField == "") {
+          $scope.panel.error = "Value field must be specified.";
+          return;
+        }
+      
+        request = request
+         .facet($scope.ejs.TermStatsFacet('terms')
+          .keyField($scope.panel.field)
+          .valueField($scope.panel.valueField)
+          .size($scope.panel.size)
+          .order($scope.panel.order)
+          .facetFilter(facetFilter)).size(0);
+        break;
+    }
 
     // Populate the inspector panel
     $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
 
-    results = request.doSearch();
+    var results = request.doSearch();
 
     // Populate scope when we have results
     results.then(function(results) {
-      var k = 0;
-      $scope.panelMeta.loading = false;
-      $scope.hits = results.hits.total;
-      $scope.data = [];
-      _.each(results.facets.terms.terms, function(v) {
-        var slice = { label : v.term, data : [[k,v.count]], actions: true}; 
-        $scope.data.push(slice);
-        k = k + 1;
-      });
-      
-      $scope.data.push({label:'Missing field',
-        data:[[k,results.facets.terms.missing]],meta:"missing",color:'#aaa',opacity:0});
-      $scope.data.push({label:'Other values',
-        data:[[k+1,results.facets.terms.other]],meta:"other",color:'#444'});
+      var scripts = $LAB.script("common/lib/jquery.number.min.js");
+            
+      scripts.wait(function() {
+        var k = 0;
+        var valueField = mode;
 
-      $scope.$emit('render');
+        $scope.panelMeta.loading = false;
+        $scope.hits = results.hits.total;
+        $scope.data = [];
+
+        _.each(results.facets.terms.terms, function(v) {
+          var decimals = !_.isUndefined($scope.panel.decimals) ? $scope.panel.decimals : 0;
+          var value = mode == "count" ? v[valueField] : parseFloat($.number(v[valueField], decimals, ".", ""));
+          var slice = { label : v.term, data : [[k,value]], actions: true}; 
+          $scope.data.push(slice);
+          k = k + 1;
+        });
+
+        if (mode == "count") {
+          $scope.data.push({label:'Missing field',
+            data:[[k,results.facets.terms.missing]],meta:"missing",color:'#aaa',opacity:0});
+          $scope.data.push({label:'Other values',
+            data:[[k+1,results.facets.terms.other]],meta:"other",color:'#444'});
+        }
+
+        $scope.$emit('render');
+      });
     });
   };
 
@@ -156,6 +193,13 @@ angular.module('kibana.terms', [])
     }
     return true;
   };
+
+  $scope.formatMetricLabel = function(metric) {
+    var formatted = $.number(metric, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
+    if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != "")
+      formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
+    return formatted;
+  }
 
 }).directive('termsChart', function(querySrv, filterSrv, dashboard) {
   return {
@@ -292,10 +336,13 @@ angular.module('kibana.terms', [])
         if (item) {
           var value = scope.panel.chart === 'bar' ? 
             item.datapoint[1] : item.datapoint[1][0][1];
+
+          var formatted = scope.formatMetricLabel(value);
+
           tt(pos.pageX, pos.pageY,
             "<div style='vertical-align:middle;border-radius:10px;display:inline-block;background:"+
             item.series.color+";height:20px;width:20px'></div> "+item.series.label+
-            " ("+value.toFixed(0)+")");
+            " ("+formatted+")");
         } else {
           $("#pie-tooltip").remove();
         }
