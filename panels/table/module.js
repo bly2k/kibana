@@ -50,7 +50,8 @@ angular.module('kibana.table', [])
     header  : true,
     paging  : true,
     field_list: true, 
-    spyable : true
+    spyable : true,
+    fieldAliases: [{ field: "@fields.timestamp", alias: "Timestamp"} ] //array of [ field, alias ]
   };
   _.defaults($scope.panel,_d);
 
@@ -61,6 +62,17 @@ angular.module('kibana.table', [])
 
     $scope.get_data();
   };
+
+  $scope.ensureFieldAlias = function(field) {
+    var fieldAlias = _.findWhere($scope.panel.fieldAliases, { field: field });
+    if (fieldAlias == null) $scope.panel.fieldAliases.push({ field: field, alias: "" });
+    return fieldAlias;
+  }
+
+  $scope.getFieldAlias = function(field) {
+    var fieldAlias = _.findWhere($scope.panel.fieldAliases, { field: field });
+    return fieldAlias != null && fieldAlias.alias != "" ? fieldAlias.alias : field;
+  }
 
   $scope.toggle_micropanel = function(field) {
     var docs = _.pluck($scope.data,'_source');
