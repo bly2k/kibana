@@ -100,8 +100,8 @@
     <div class="span2">
       <label class="small">Alias</label>
     </div>
-    <div class="span2">
-      <label class="small">Filter</label>
+    <div class="span3">
+      <label class="small">Querystring Filter</label>
     </div>
     <div class="span2">
       <label class="small">Delete</label>
@@ -120,8 +120,8 @@
     <div class="span2">
       <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.alias">
     </div>
-    <div class="span2">
-      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.queryString">
+    <div class="span3">
+      <input ng-change="set_refresh(true)" type="text" class="input-medium" ng-model="item.queryString">
     </div>
     <div class="span1">
       <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>

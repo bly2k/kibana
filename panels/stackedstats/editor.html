@@ -1,47 +1,47 @@
 <div>
   <div class="row-fluid">
-    <div class="span3"> 
+    <h5>Stacked Metrics</h5>
+  </div> 
+  <div class="row-fluid" ng-show="panel.stackCharts.length > 0">
+    <div class="span2">
       <label class="small">Metric</label> 
-      <select class="input-medium" ng-model="panel.mode" ng-options="f for f in ['count','total','min','max','mean']" ng-change="set_refresh(true)"></select></span>
     </div>
     <div class="span2">
       <label class="small">Field</label>
-      <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.field" ng-change="set_refresh(true)">
-    </div>
-    <div class="span2" ng-show="panel.mode!='count'">
-      <label class="small">Value Field</label>
-      <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.valueField" ng-change="set_refresh(true)">
     </div>
     <div class="span2">
-      <label class="small">Length</label>
-      <input class="input-small" type="number" ng-model="panel.size" ng-change="set_refresh(true)">
+      <label class="small">Alias</label>
+    </div>
+    <div class="span4">
+      <label class="small">Querystring Filter</label>
     </div>
     <div class="span2">
-      <label class="small">Filter Field</label>
-      <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.filterField" ng-change="set_refresh(true)">
+      <label class="small">Delete</label>
     </div>
-  </div>  
-  <div class="row-fluid">
-    <div class="span3"> 
-      <label class="small">Sort</label> 
-      <select class="input-medium" ng-model="panel.order" ng-show="panel.mode=='count'" ng-options="f for f in ['count','term','reverse_count','reverse_term']" ng-change="set_refresh(true)"></select></span>
-      <select class="input-medium" ng-model="panel.order" ng-show="panel.mode!='count'" ng-options="f for f in ['count','term','reverse_count','reverse_term','total','reverse_total','min','reverse_min','max','reverse_max','mean','reverse_mean']" ng-change="set_refresh(true)"></select></span>
+  </div>
+  <div class="row-fluid" ng-repeat="item in panel.stackCharts">
+    <div class="span2">
+      <select ng-change="set_refresh(true)" class="input-small" ng-model="item.statistic" ng-options="f for f in ['count','mean','min','max','total','termscount','hits']"></select>
     </div>
-    <div class="span4" ng-show="panel.mode=='count'">
-      <label class="small">Exclude Terms (comma seperated)</label>
-      <input array-join type="text" ng-model='panel.exclude' ng-change="set_refresh(true)"></input>
+    <div class="span2">
+      <input ng-change="set_refresh(true)" ng-disabled="item.statistic == 'hits'" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="item.field">
     </div>
-    <div class="span4" ng-show="panel.mode=='count'">
-      <label class="small">Include Terms (regex)</label>
-      <input type="text" ng-model='panel.include' ng-change="set_refresh(true)"></input>
+    <div class="span2">
+      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.alias">
     </div>
-  </div>  
-  <div class="row-fluid">
-    <div class="span10" ng-show="panel.mode=='count'">
-      <label class="small">Term Script</label>
-      <textarea ng-model="panel.termScript" rows="2" style="width:100%" ng-change="set_refresh(true)"></textarea>
+    <div class="span4">
+      <input ng-change="set_refresh(true)" type="text" class="input-large" ng-model="item.queryString">
     </div>
-  </div>  
+    <div class="span1">
+      <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
+    </div>
+    <div class="span6" ng-show="item.statistic == 'mean' || item.statistic == 'min' || item.statistic == 'max' || item.statistic == 'total'">
+      <small>Note: In <strong>{{item.statistic}}</strong> mode, specified field <strong>must</strong> be a numeric type</small>
+    </div>
+  </div>
+  <div class="row-fluid" style="margin-bottom:10px;">
+    <button class="btn btn-success " ng-click="addStackChart()" style="">Add Metric</button>
+  </div> 
   <div class="row-fluid">
     <div class="span2">
       <label class="small">Format String</label>
@@ -58,6 +58,10 @@
     <div class="span2">
       <label class="small">Comma Separator</label>
       <input type="text" class="input-small" ng-model="panel.commaSeparator" ng-change="set_refresh(true)">
+    </div>
+    <div class="span2">
+      <label class="small">Terms Count Max</label>
+      <input class="input-small" type="number" ng-model="panel.termsCountMax" ng-change="set_refresh(true)">
     </div>
   </div>
   <div class="row-fluid">
@@ -76,12 +80,6 @@
     <div class="span3" ng-show="panel.chart != 'table' && panel.counter_pos != 'none'">
       <label class="small" >Legend Format</label> 
       <select class="input-small" ng-model="panel.arrangement" ng-options="f for f in ['horizontal','vertical']"></select></span>
-    </div>
-    <div class="span1" ng-show="panel.mode=='count'">
-      <label class="small">Missing</label><input type="checkbox" ng-model="panel.missing" ng-checked="panel.missing">
-    </div>
-    <div class="span1" ng-show="panel.mode=='count'">
-      <label class="small">Other</label><input type="checkbox" ng-model="panel.other" ng-checked="panel.other">
     </div>
     <div class="span1" ng-show='panel.chart == "pie"'>
       <label class="small">Donut</label><input type="checkbox" ng-model="panel.donut" ng-checked="panel.donut">

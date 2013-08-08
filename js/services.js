@@ -244,21 +244,35 @@ angular.module('kibana.services', [])
 
     // This could probably be changed to a BoolFilter 
     var queryIds = self.idsByMode(queries);
-    if (queryIds != null && queryIds.length > 0) facetQuery = ejs.BoolQuery();
-    _.each(queryIds, function (id)
-    {
-      facetQuery = facetQuery.should(self.getEjsObj(id));
-    });
+    if (queryIds != null && queryIds.length > 0) {
+      facetQuery = ejs.BoolQuery();
+      _.each(queryIds, function (id) {
+        facetQuery = facetQuery.should(self.getEjsObj(id));
+      });
+    }
 
-    var facetFilter = ejs.BoolFilter().must(ejs.MatchAllFilter());
+    var facetFilter = ejs.BoolFilter();
     
     if (queries.mode != "index") 
       facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
 
     if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
-      var qs = ejs.QueryStringQuery(queryString);
-      facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+      if (_.isString(queryString)) {
+        var qs = ejs.QueryStringQuery(queryString);
+        facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+      }
+      else if (_.isArray(queryString)) {
+        _.each(queryString, function (q) {
+          if (!_.isUndefined(q) && q != null && q != "") {
+            var qs = ejs.QueryStringQuery(q);
+            facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+          }
+        });
+      }
     }
+
+    if (facetFilter.must().length <= 0)
+      facetFilter = facetFilter.must(ejs.MatchAllFilter());
 
     facetFilter = ejs.QueryFilter(ejs.FilteredQuery(facetQuery, facetFilter));
 

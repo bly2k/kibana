@@ -1,47 +1,18 @@
-/*jshint globalstrict:true */
-/*global angular:true */
-
-/*
-
-  ## Terms
-
-  ### Parameters
-  * style :: A hash of css styles
-  * size :: top N
-  * arrangement :: How should I arrange the query results? 'horizontal' or 'vertical'
-  * chart :: Show a chart? 'none', 'bar', 'pie'
-  * donut :: Only applies to 'pie' charts. Punches a hole in the chart for some reason
-  * tilt :: Only 'pie' charts. Janky 3D effect. Looks terrible 90% of the time. 
-  * lables :: Only 'pie' charts. Labels on the pie?
-
-*/
-
 'use strict';
 
-angular.module('kibana.terms', [])
-.controller('terms', function($scope, querySrv, dashboard, filterSrv) {
-
+angular.module('kibana.stackedstats', [])
+.controller('stackedstats', function ($scope, querySrv, dashboard, filterSrv)
+{
   $scope.panelMeta = {
-    status  : "Beta",
-    description : "Displays the results of an elasticsearch facet as a pie chart, bar chart, or a "+ 
-      "table"
+    status: "Stable",
+    description: "Displays a stack of statistical aggregrations (count, total, avg, max, min, terms/distinct count, hits) of a numeric field."
   };
 
-  // Set and populate defaults
   var _d = {
-    queries     : {
-      mode        : 'all',
-      ids         : []
+    queries: {
+      mode: 'all',
+      ids: []
     },
-    field   : '_type',
-    filterField: null,
-    exclude : [],
-    include : null,
-    termScript: null,
-    missing : true,
-    other   : true,
-    size    : 10,
-    order   : 'count',
     style   : { "font-size": '10pt'},
     donut   : false,
     tilt    : false,
@@ -49,160 +20,188 @@ angular.module('kibana.terms', [])
     arrangement : 'horizontal',
     chart       : 'bar',
     counter_pos : 'above',
-    spyable     : true,
-    mode: "count",
-    valueField: "",
+    stackCharts : [], //array of { statistic: "count", field: "@timestamp", alias: "", queryString: "" }
     decimals: 0,
     decimalSeparator: ".",
     commaSeparator: ",",
-    formatString: "{0}"
+    termsCountMax: 100000,
+    formatString: "{0}",
+    spyable : true
   };
-  _.defaults($scope.panel,_d);
 
-  $scope.init = function () {
-    $scope.hits = 0;
-   
-    $scope.$on('refresh',function(){
+  _.defaults($scope.panel, _d);
+
+  // I really don't like this function, too much dom manip. Break out into directive?
+  $scope.populate_modal = function(request) {
+    $scope.modal = {
+      title: "Inspector",
+      body : "<h5>Last Elasticsearch Query</h5><pre>"+
+        'curl -XGET '+config.elasticsearch+'/'+dashboard.indices+"/_search?pretty -d'\n"+
+        angular.toJson(JSON.parse(request.toString()),true)+
+      "'</pre>", 
+    }; 
+  };
+
+  $scope.set_refresh = function (state)
+  {
+    $scope.refresh = state;
+  };
+
+  $scope.close_edit = function ()
+  {
+    if ($scope.refresh)
+    {
+      $scope.get_data();
+    }
+    $scope.refresh = false;
+    $scope.$emit('render');
+  };
+
+  $scope.init = function ()
+  {
+    $scope.$on('refresh', function ()
+    {
       $scope.get_data();
     });
     $scope.get_data();
-
   };
 
-  $scope.getStatisticLabel = function()
-  {
-    var mode = $scope.panel.mode;
-    return mode.charAt(0).toUpperCase() + mode.slice(1)
+  $scope.addStackChart = function() {
+    $scope.panel.stackCharts.push({ statistic: "count", field: null, alias: null, queryString: null });
+    $scope.set_refresh(true);
   }
 
-  $scope.get_data = function(segment,query_id) {
+  $scope.buildFacet = function(stackId, statistic, field, queryString, facetFilter) {
+    var facet = null;
+
+    if (statistic != "hits" && (field == null || field == "")) {
+      $scope.panel.error = "Field must be specified.";
+      return null;
+    }
+    else if (statistic == "hits" && (queryString == null || queryString == ""))
+    {
+      $scope.panel.error = "Querystring must be specified.";
+      return null;
+    };
+
+    switch (statistic)
+    {
+      case "termscount":
+        facet = $scope.ejs.TermsFacet(stackId)
+          .field(field)
+          .facetFilter(facetFilter)
+          .size($scope.panel.termsCountMax);
+        break;
+
+      case "hits":
+        var qs = (queryString != null || queryString != "") ? $scope.ejs.QueryStringQuery(queryString) : $scope.ejs.QueryStringQuery("*");
+        facet = $scope.ejs.QueryFacet(stackId)
+          .query(qs)
+          .facetFilter(facetFilter);
+        break;
+
+      case "count":
+        facet = $scope.ejs.QueryFacet(stackId)
+          .query($scope.ejs.QueryStringQuery(field + ":*"))
+          .facetFilter(facetFilter);
+        break;
+
+      default:
+        facet = $scope.ejs.StatisticalFacet(stackId)
+          .field(field)
+          .facetFilter(facetFilter);
+        break;
+    }
+
+    return facet;
+  }
+
+  $scope.getStatistic = function(facet, statistic) {
+    var decimals = !_.isUndefined($scope.panel.decimals) ? $scope.panel.decimals : 0;
+    
+    var result = 0;
+    switch (statistic)
+    {
+      case "termscount": 
+        result = facet.terms.length;
+        break;
+
+      case "hits":
+      case "count":
+        result = facet.count;
+        break;
+
+      default:
+        result = facet[statistic];
+        break;
+    }
+
+    result = parseFloat($.number(result, decimals, ".", ""));
+    return result;
+  }
+
+  $scope.getStackAlias = function(stack) {
+    var result = stack.alias;
+    if (result == null || result == "") {
+      result = stack.field != null && stack.field != "" ? stack.field : "";
+      result += " " + stack.statistic;
+      if (stack.queryString != null && stack.queryString != "") result += " (" + stack.queryString + ")";
+    }
+    return result;
+  }
+
+  $scope.get_data = function (segment, query_id)
+  {
     delete $scope.panel.error;
 
     // Make sure we have everything for the request to complete
-    if(dashboard.indices.length === 0) {
+    if (dashboard.indices.length === 0 || $scope.panel.field == "") {
       return;
-    } 
+    }
 
     $scope.panelMeta.loading = true;
 
     var request = $scope.ejs.Request().indices(dashboard.indices);
 
-    $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
+    $scope.panel.queries.ids = [];
 
-    var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
-
-    var mode = $scope.panel.mode;
-
-    switch (mode)
-    {
-      case "count":
-        // Terms mode
-        var termsFacet = $scope.ejs.TermsFacet('terms')
-          .field($scope.panel.field)
-          .size($scope.panel.size)
-          .order($scope.panel.order)
-          .exclude($scope.panel.exclude)
-          .facetFilter(facetFilter);
-
-        if ($scope.panel.include != null && $scope.panel.include != "")
-          termsFacet = termsFacet.regex($scope.panel.include);
-
-        if ($scope.panel.termScript != null && $scope.panel.termScript != "")
-          termsFacet = termsFacet.scriptField($scope.panel.termScript);
-
-        request = request.facet(termsFacet).size(0);
-        break;
-
-      default:
-        if ($scope.panel.valueField == "") {
-          $scope.panel.error = "Value field must be specified.";
-          return;
-        }
-      
-        request = request
-         .facet($scope.ejs.TermStatsFacet('terms')
-          .keyField($scope.panel.field)
-          .valueField($scope.panel.valueField)
-          .size($scope.panel.size)
-          .order($scope.panel.order)
-          .facetFilter(facetFilter)).size(0);
-        break;
-    }
+    var stackId = 0;
+    _.each($scope.panel.stackCharts, function (item) {
+      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, item.queryString]);
+      var facet = $scope.buildFacet(stackId, item.statistic, item.field, item.queryString, facetFilter);
+      if (facet == null) return;
+      $scope.panel.queries.ids.push(stackId);
+      stackId++;
+      request = request.facet(facet).size(0);
+    });
 
     // Populate the inspector panel
-    $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
+    $scope.populate_modal(request);
 
     var results = request.doSearch();
 
-    // Populate scope when we have results
-    results.then(function(results) {
+    results.then(function (results) {
+      $scope.panelMeta.loading = false;
+
       var scripts = $LAB.script("common/lib/jquery.number.min.js");
-            
+      
       scripts.wait(function() {
         var k = 0;
-        var valueField = mode;
-
-        $scope.panelMeta.loading = false;
-        $scope.hits = results.hits.total;
         $scope.data = [];
 
-        _.each(results.facets.terms.terms, function(v) {
-          var decimals = !_.isUndefined($scope.panel.decimals) ? $scope.panel.decimals : 0;
-          var value = mode == "count" ? v[valueField] : parseFloat($.number(v[valueField], decimals, ".", ""));
-          var slice = { label : v.term, data : [[k,value]], actions: true}; 
+        _.each($scope.panel.queries.ids, function(id) {
+          var v = results.facets[id];
+          var stack = $scope.panel.stackCharts[k];
+          var value = $scope.getStatistic(v, stack.statistic);
+          var label = $scope.getStackAlias(stack);
+          var slice = { label : label, data : [[k,value]], actions: true}; 
           $scope.data.push(slice);
           k = k + 1;
         });
 
-        if (mode == "count") {
-          $scope.data.push({label:'Missing field',
-            data:[[k,results.facets.terms.missing]],meta:"missing",color:'#aaa',opacity:0});
-          $scope.data.push({label:'Other values',
-            data:[[k+1,results.facets.terms.other]],meta:"other",color:'#444'});
-        }
-
         $scope.$emit('render');
       });
     });
-  };
-
-  $scope.build_search = function(term,negate) {
-    var filterField = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : $scope.panel.field;
-    if(_.isUndefined(term.meta)) {
-      filterSrv.set({type:'terms',field:filterField,value:term.label,
-        mandate:(negate ? 'mustNot':'must')});
-    } else if(term.meta === 'missing') {
-      filterSrv.set({type:'exists',field:filterField,
-        mandate:(negate ? 'must':'mustNot')});
-    } else {
-      return;
-    }
-    dashboard.refresh();
-  };
-
-  $scope.set_refresh = function (state) { 
-    $scope.refresh = state; 
-  };
-
-  $scope.close_edit = function() {
-    if($scope.refresh) {
-      $scope.get_data();
-    }
-    $scope.refresh =  false;
-    $scope.$emit('render');
-  };
-
-  $scope.showMeta = function(term) {
-    if(_.isUndefined(term.meta)) {
-      return true;
-    }
-    if(term.meta === 'other' && !$scope.panel.other) {
-      return false;
-    }
-    if(term.meta === 'missing' && !$scope.panel.missing) {
-      return false;
-    }
-    return true;
   };
 
   $scope.formatMetricLabel = function(metric) {
@@ -211,8 +210,7 @@ angular.module('kibana.terms', [])
       formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
     return formatted;
   }
-
-}).directive('termsChart', function(querySrv, filterSrv, dashboard) {
+}).directive('stackedStatsChart', function(querySrv, filterSrv, dashboard) {
   return {
     restrict: 'A',
     link: function(scope, elem, attrs, ctrl) {
@@ -336,12 +334,6 @@ angular.module('kibana.terms', [])
           'border-radius': '5px',
         }).appendTo("body");
       }
-
-      elem.bind("plotclick", function (event, pos, object) {
-        if(object) {
-          scope.build_search(scope.data[object.seriesIndex]);
-        }
-      });
 
       elem.bind("plothover", function (event, pos, item) {
         if (item) {

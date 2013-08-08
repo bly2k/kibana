@@ -67,8 +67,13 @@ angular.module('kibana.stats', [])
     delete $scope.panel.error;
 
     // Make sure we have everything for the request to complete
-    if (dashboard.indices.length === 0 || $scope.panel.field == "") {
+    if (dashboard.indices.length === 0) {
       return;
+    }
+
+    if ($scope.panel.statistic != "hits" && ($scope.panel.field == null || $scope.panel.field == "")) {
+      $scope.panel.error = "Field must be specified.";
+      return null;
     }
 
     $scope.panelMeta.loading = true;
@@ -83,12 +88,26 @@ angular.module('kibana.stats', [])
 
     switch (mode)
     {
+      case "count":
+        request = request
+          .facet($scope.ejs.QueryFacet('stats')
+            .query($scope.ejs.QueryStringQuery($scope.panel.field + ":*"))
+            .facetFilter(facetFilter)).size(0);
+        break;
+
       case "termscount":
         request = request
          .facet($scope.ejs.TermsFacet('terms')
           .field($scope.panel.field)
           .facetFilter(facetFilter)
           .size($scope.panel.termsCountMax)).size(0);
+        break;
+
+      case "hits":
+        request = request
+          .facet($scope.ejs.QueryFacet('stats')
+            .query($scope.ejs.QueryStringQuery("*"))
+            .facetFilter(facetFilter)).size(0);
         break;
 
       default:
@@ -120,6 +139,11 @@ angular.module('kibana.stats', [])
         {
           case "termscount":
             statistic = results.facets.terms.terms.length;
+            break;
+
+          case "count":
+          case "hits":
+            statistic = results.facets.stats.count;
             break;
 
           default:
