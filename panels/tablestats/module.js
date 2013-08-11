@@ -14,7 +14,7 @@ angular.module('kibana.tablestats', [])
       ids: []
     },
     style   : { "font-size": '10pt'},
-    stackCharts : [], //array of { statistic: "count", field: "", alias: "", queryString: "" }
+    stackCharts : [], //array of { statistic: "count", field: "", alias: "", queryString: "", valueScript: "" }
     decimals: 0,
     decimalSeparator: ".",
     commaSeparator: ",",
@@ -68,11 +68,18 @@ angular.module('kibana.tablestats', [])
   };
 
   $scope.addStackChart = function() {
-    $scope.panel.stackCharts.push({ statistic: "count", field: "", alias: "", queryString: "" });
+    $scope.panel.stackCharts.push({ statistic: "count", field: "", alias: "", queryString: "", valueScript: "" });
     $scope.set_refresh(true);
   }
 
   $scope.setSort = function(chartIndex) {
+    if (chartIndex < 0) {
+      $scope.panel.sort.field = "";
+      $scope.panel.sort.order = "";
+      $scope.panel.sort.chartIndex = 0;
+      return;
+    }
+
     var currentSort = $scope.getSortParams();
     if (chartIndex == currentSort.chartIndex) {
       currentSort.order = currentSort.order.match(/reverse_.*/) ? currentSort.order.replace(/reverse_/, "") : "reverse_" + currentSort.order;
@@ -86,9 +93,10 @@ angular.module('kibana.tablestats', [])
     $scope.get_data();
   }
 
-  $scope.buildSearch = function (term) {
+  $scope.buildSearch = function (term, mandate) {
+    if (_.isUndefined(mandate)) mandate = "must";
     var filterField = $scope.panel.field;
-    filterSrv.set({ type:'terms', field:filterField, value:term, mandate:'must'});
+    filterSrv.set({ type:'terms', field:filterField, value:term, mandate: mandate });
     dashboard.refresh();
   }
 
@@ -128,13 +136,18 @@ angular.module('kibana.tablestats', [])
       var chart = $scope.panel.stackCharts[c];
       var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, chart.queryString]);
       if (c != sort.chartIndex) {
-        request = request
-          .facet($scope.ejs.TermStatsFacet(c.toString())
-            .keyField($scope.panel.field)
-            .valueField(chart.field)
-            .size($scope.panel.size)
-            .order("term")
-            .facetFilter(facetFilter)).size(0);
+        var facet = $scope.ejs.TermStatsFacet(c.toString())
+          .keyField($scope.panel.field)
+          .size($scope.panel.size)
+          .order("term")
+          .facetFilter(facetFilter);
+
+        if (chart.valueScript != null && chart.valueScript != "")
+          facet = facet.valueScript(chart.valueScript);
+        else
+          facet = facet.valueField(chart.field);
+
+        request = request.facet(facet).size(0);
       }
     }
 
@@ -187,13 +200,18 @@ angular.module('kibana.tablestats', [])
     var primaryChart = $scope.panel.stackCharts[sort.chartIndex];
     var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, primaryChart.queryString]);
 
-    request = request
-      .facet($scope.ejs.TermStatsFacet(sort.chartIndex.toString())
-        .keyField($scope.panel.field)
-        .valueField(sort.field)
-        .size($scope.panel.size)
-        .order(sort.order)
-        .facetFilter(facetFilter)).size(0);
+    var facet = $scope.ejs.TermStatsFacet(sort.chartIndex.toString())
+      .keyField($scope.panel.field)
+      .size($scope.panel.size)
+      .order(sort.order)
+      .facetFilter(facetFilter);
+
+    if (primaryChart.valueScript != null && primaryChart.valueScript != "")
+      facet = facet.valueScript(primaryChart.valueScript);
+    else
+      facet = facet.valueField(sort.field);
+
+    request = request.facet(facet).size(0);
 
     // Populate the inspector panel
     $scope.populate_modal(request);

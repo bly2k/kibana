@@ -283,8 +283,18 @@ angular.module('kibana.services', [])
     var facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
 
     if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
-      var qs = ejs.QueryStringQuery(queryString);
-      facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+      if (_.isString(queryString)) {
+        var qs = ejs.QueryStringQuery(queryString);
+        facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+      }
+      else if (_.isArray(queryString)) {
+        _.each(queryString, function (q) {
+          if (!_.isUndefined(q) && q != null && q != "") {
+            var qs = ejs.QueryStringQuery(q);
+            facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+          }
+        });
+      }
     }
 
     facetFilter = ejs.QueryFilter(

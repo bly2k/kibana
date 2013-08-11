@@ -70,11 +70,14 @@ angular.module('kibana.histogram', [])
     percentage  : false,
     interactive : true,
     alias: "",
-    stackCharts : [], //array of { mode: "count", time_field: "@timestamp", value_field: "", alias: "", queryString: "" }
+    stackCharts : [], //array of { mode: "count", value_field: "", alias: "", queryString: "", valueScript: "" }
     decimals: 0,
     decimalSeparator: ".",
     commaSeparator: ",",
-    formatString: "{0}"
+    formatString: "{0}",
+    queryString: "",
+    valueScript: "",
+    hits: true
   };
 
   _.defaults($scope.panel,_d);
@@ -89,7 +92,7 @@ angular.module('kibana.histogram', [])
   };
 
   $scope.addStackChart = function() {
-    $scope.panel.stackCharts.push({ mode: $scope.panel.mode, time_field: $scope.panel.time_field, value_field: null, alias: null, queryString: null });
+    $scope.panel.stackCharts.push({ mode: $scope.panel.mode, value_field: "", alias: "", queryString: "", valueScript: "" });
     $scope.set_refresh(true);
   }
 
@@ -105,7 +108,7 @@ angular.module('kibana.histogram', [])
     }
   }
 
-  $scope.buildFacet = function(id, mode, time_field, value_field, interval, facetFilter) {
+  $scope.buildFacet = function(id, mode, time_field, value_field, valueScript, interval, facetFilter) {
     var facet = $scope.ejs.DateHistogramFacet(id);
       
     if(mode === 'count') {
@@ -115,7 +118,13 @@ angular.module('kibana.histogram', [])
         $scope.panel.error = "In " + mode + " mode, a field must be specified";
         return null;
       }
-      facet = facet.keyField(time_field).valueField(value_field);
+
+      facet = facet.keyField(time_field);
+
+      if (valueScript != null && valueScript != "")
+        facet = facet.valueScript(valueScript);
+      else
+        facet = facet.valueField(value_field);
     }
     facet = facet.interval($scope.getFacetInterval(interval)).facetFilter(facetFilter);
     return facet;
@@ -142,8 +151,8 @@ angular.module('kibana.histogram', [])
     var result = item.alias;
     if (result != null && result != "") return result;
 
-    var valueField = item.mode == "count" ? item.time_field : item.value_field;
-    if (valueField == null || valueField == "") valueField = item.time_field;
+    var valueField = item.mode == "count" ? $scope.panel.time_field : item.value_field;
+    if (valueField == null || valueField == "") valueField = $scope.panel.time_field;
 
     return item.mode + " " + valueField;
   }
@@ -157,7 +166,7 @@ angular.module('kibana.histogram', [])
       return { alias: alias, color: globalAlias.color };
     }
     else {
-      return { alias: $scope.getStackChartAlias(id), color: querySrv.colorAt(id) };
+      return { alias: $scope.getStackChartAlias(id), color: querySrv.colorAt(parseInt(id)) };
     }
   }
 
@@ -185,25 +194,25 @@ angular.module('kibana.histogram', [])
 
       // Build the query
       _.each($scope.panel.queries.ids, function(id) {
-        var facetFilter = querySrv.getFacetFilterByQueryId(filterSrv, id, $scope.panel.queries.queryString);
-        var facet = $scope.buildFacet(id, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.interval, facetFilter);
+        var facetFilter = querySrv.getFacetFilterByQueryId(filterSrv, id, [$scope.panel.queryString, $scope.panel.queries.queryString]);
+        var facet = $scope.buildFacet(id, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.valueScript, $scope.panel.interval, facetFilter);
         if (facet == null) return;
         request = request.facet(facet).size(0);
       });
     }
     else {
-      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queryString, $scope.panel.queries.queryString]);
 
       $scope.panel.queries.ids = [0];
-      var facet = $scope.buildFacet(0, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.interval, facetFilter);
+      var facet = $scope.buildFacet(0, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.valueScript, $scope.panel.interval, facetFilter);
       if (facet == null) return;
       request = request.facet(facet).size(0);
 
       var stackId = 1;
       _.each($scope.panel.stackCharts, function (item) {
         var qs = _.isUndefined(item.queryString) ? null : item.queryString;
-        var filter = (qs == null || qs == "") ? facetFilter : querySrv.getFacetFilter(filterSrv, $scope.panel.queries, qs);
-        var facet = $scope.buildFacet(stackId, item.mode, item.time_field, item.value_field, $scope.panel.interval, filter);
+        var filter = (qs == null || qs == "") ? facetFilter : querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [qs, $scope.panel.queries.queryString]);
+        var facet = $scope.buildFacet(stackId, item.mode, $scope.panel.time_field, item.value_field, item.valueScript, $scope.panel.interval, filter);
         if (facet == null) return;
         $scope.panel.queries.ids.push(stackId);
         stackId++;
@@ -460,6 +469,21 @@ angular.module('kibana.histogram', [])
         return "%H:%M:%S";
       }
 
+      function hover_time_format(interval) {
+        var _int = kbn.interval_to_seconds(interval);
+        if(_int >= 2628000) {
+          return "MM/YYYY";
+        }
+        if(_int >= 86400) {
+          return "MM/DD/YYYY";
+        }
+        if(_int >= 60) {
+          return "HH:mm MM/DD";
+        }
+        
+        return "MM/DD HH:mm:ss";
+      }
+
       function tt(x, y, contents) {
         // If the tool tip already exists, don't recreate it, just update it
         var tooltip = $('#pie-tooltip').length ? 
@@ -488,7 +512,7 @@ angular.module('kibana.histogram', [])
             "<div style='vertical-align:middle;display:inline-block;background:"+
             item.series.color+";height:15px;width:15px;border-radius:10px;'></div> "+
             formatted + " @ " + 
-            moment(item.datapoint[0]).format('MM/DD HH:mm:ss'));
+            moment(item.datapoint[0]).format(hover_time_format(scope.panel.interval)));
         } else {
           $("#pie-tooltip").remove();
         }

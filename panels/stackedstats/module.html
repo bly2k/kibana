@@ -42,11 +42,11 @@
 
   <table ng-style="panel.style" class="table table-striped table-condensed" ng-show="panel.chart == 'table'">  
     <thead>
-      <th>Statistic</th> <th>Value</th>
+      <th>Statistic</th><th style="text-align:center">Value</th>
     </thead>
     <tr ng-repeat="term in data">
-      <td>{{term.label}}</td>
-      <td>{{formatMetricLabel(term.data[0][1])}}</td>
+      <th nowrap="nowrap">{{term.label}}</th>
+      <td style="text-align:right">{{formatMetricLabel(term.data[0][1])}}</td>
     </tr>
   </table>
 </kibana-panel>

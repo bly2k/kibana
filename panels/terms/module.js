@@ -37,7 +37,6 @@ angular.module('kibana.terms', [])
     filterField: null,
     exclude : [],
     include : null,
-    termScript: null,
     missing : true,
     other   : true,
     size    : 10,
@@ -55,8 +54,15 @@ angular.module('kibana.terms', [])
     decimals: 0,
     decimalSeparator: ".",
     commaSeparator: ",",
-    formatString: "{0}"
+    formatString: "{0}",
+    termScript: null,
+    valueScript: null,
+    alias: "",
+    valueAlias: "",
+    filterTerm: "",
+    filterId: null
   };
+
   _.defaults($scope.panel,_d);
 
   $scope.init = function () {
@@ -69,10 +75,30 @@ angular.module('kibana.terms', [])
 
   };
 
+  $scope.selectTermFilter = function() {
+    var deleted = $scope.panel.filterId != null ? filterSrv.remove($scope.panel.filterId) : false;
+    $scope.panel.filterId = null;
+    if ($scope.panel.filterTerm != null && $scope.panel.filterTerm != "") {
+      var filterField = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : $scope.panel.field;
+      $scope.panel.filterId = filterSrv.set({type: 'terms', field: filterField, value: $scope.panel.filterTerm, mandate: 'must'});
+    }
+    dashboard.refresh();
+  }
+
   $scope.getStatisticLabel = function()
   {
+    if ($scope.panel.valueAlias != null && $scope.panel.valueAlias != "") 
+      return $scope.panel.valueAlias;
     var mode = $scope.panel.mode;
-    return mode.charAt(0).toUpperCase() + mode.slice(1)
+    return mode.charAt(0).toUpperCase() + mode.slice(1);
+  }
+
+  $scope.getFieldLabel = function()
+  {
+    if ($scope.panel.alias != null && $scope.panel.alias != "") 
+      return $scope.panel.alias;
+    var field = $scope.panel.field;
+    return field.charAt(0).toUpperCase() + field.slice(1);
   }
 
   $scope.get_data = function(segment,query_id) {
@@ -118,14 +144,19 @@ angular.module('kibana.terms', [])
           $scope.panel.error = "Value field must be specified.";
           return;
         }
-      
-        request = request
-         .facet($scope.ejs.TermStatsFacet('terms')
+
+        var tsFacet = $scope.ejs.TermStatsFacet('terms')
           .keyField($scope.panel.field)
-          .valueField($scope.panel.valueField)
           .size($scope.panel.size)
           .order($scope.panel.order)
-          .facetFilter(facetFilter)).size(0);
+          .facetFilter(facetFilter);
+
+        if ($scope.panel.valueScript != null && $scope.panel.valueScript != "")
+          tsFacet = tsFacet.valueScript($scope.panel.valueScript);
+        else
+          tsFacet = tsFacet.valueField($scope.panel.valueField);
+      
+        request = request.facet(tsFacet).size(0);
         break;
     }
 
@@ -155,10 +186,12 @@ angular.module('kibana.terms', [])
         });
 
         if (mode == "count") {
-          $scope.data.push({label:'Missing field',
-            data:[[k,results.facets.terms.missing]],meta:"missing",color:'#aaa',opacity:0});
-          $scope.data.push({label:'Other values',
-            data:[[k+1,results.facets.terms.other]],meta:"other",color:'#444'});
+          if ($scope.panel.missing)
+            $scope.data.push({label:'Missing field',
+              data:[[k,results.facets.terms.missing]],meta:"missing",color:'#aaa',opacity:0});
+          if ($scope.panel.other)
+            $scope.data.push({label:'Other values',
+              data:[[k+1,results.facets.terms.other]],meta:"other",color:'#444'});
         }
 
         $scope.$emit('render');
@@ -205,7 +238,7 @@ angular.module('kibana.terms', [])
     return true;
   };
 
-  $scope.formatMetricLabel = function(metric) {
+  $scope.formatMetricValue = function(metric) {
     var formatted = $.number(metric, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
     if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != "")
       formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
@@ -348,7 +381,7 @@ angular.module('kibana.terms', [])
           var value = scope.panel.chart === 'bar' ? 
             item.datapoint[1] : item.datapoint[1][0][1];
 
-          var formatted = scope.formatMetricLabel(value);
+          var formatted = scope.formatMetricValue(value);
 
           tt(pos.pageX, pos.pageY,
             "<div style='vertical-align:middle;border-radius:10px;display:inline-block;background:"+

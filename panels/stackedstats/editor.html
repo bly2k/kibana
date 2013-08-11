@@ -29,8 +29,10 @@
     <div class="span4">
       <input ng-change="set_refresh(true)" type="text" class="input-large" ng-model="item.queryString">
     </div>
-    <div class="span1">
+    <div class="span2">
       <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
+      <i ng-click="_.move(panel.stackCharts,$index,$index-1); set_refresh(true);" ng-hide="$first" class="pointer icon-arrow-up"></i>
+      <i ng-click="_.move(panel.stackCharts,$index,$index+1); set_refresh(true);" ng-hide="$last" class="pointer icon-arrow-down"></i>
     </div>
     <div class="span6" ng-show="item.statistic == 'mean' || item.statistic == 'min' || item.statistic == 'max' || item.statistic == 'total'">
       <small>Note: In <strong>{{item.statistic}}</strong> mode, specified field <strong>must</strong> be a numeric type</small>
