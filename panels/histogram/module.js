@@ -504,7 +504,12 @@ angular.module('kibana.histogram', [])
 
       elem.bind("plothover", function (event, pos, item) {
         if (item) {
-          var formatted = $.number(item.datapoint[1], scope.panel.decimals, scope.panel.decimalSeparator, scope.panel.commaSeparator);
+          var time = item.datapoint[0];
+          var y = item.datapoint[1];
+          var yStack = _.isUndefined(item.datapoint[2]) ? 0 : item.datapoint[2];
+          var yActual = y - yStack;
+
+          var formatted = $.number(yActual, scope.panel.decimals, scope.panel.decimalSeparator, scope.panel.commaSeparator);
           if (!_.isUndefined(scope.panel.formatString) && scope.panel.formatString != "")
             formatted = scope.panel.formatString.replace(/\{0\}/g, formatted);
 
@@ -512,7 +517,7 @@ angular.module('kibana.histogram', [])
             "<div style='vertical-align:middle;display:inline-block;background:"+
             item.series.color+";height:15px;width:15px;border-radius:10px;'></div> "+
             formatted + " @ " + 
-            moment(item.datapoint[0]).format(hover_time_format(scope.panel.interval)));
+            moment(time).format(hover_time_format(scope.panel.interval)));
         } else {
           $("#pie-tooltip").remove();
         }
