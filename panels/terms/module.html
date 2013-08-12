@@ -46,7 +46,7 @@
     <tr ng-repeat="term in data" ng-show="showMeta(term)">
       <th nowrap="nowrap"><span ng-click="build_search(term)" class="pointer" bs-tooltip="'Filter by \'' + term.label + '\''">{{term.label}}</span></th>
       <td style="text-align:right">{{formatMetricValue(term.data[0][1])}}</td>
-      <td>
+      <td nowrap="nowrap">
         <span ng-hide="term.meta == 'other'">
           <i class='icon-search pointer' ng-click="build_search(term)" bs-tooltip="'Filter by \'' + term.label + '\''"></i> 
           <i class='icon-ban-circle pointer' ng-click="build_search(term,true)" bs-tooltip="'Filter except \'' + term.label + '\''"></i>
