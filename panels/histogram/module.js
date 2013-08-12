@@ -162,7 +162,7 @@ angular.module('kibana.histogram', [])
     {
       var globalAlias = querySrv.list[id];
       var alias = $scope.getStackChartAlias(0);
-      if (globalAlias.alias != null && globalAlias.alias != "") alias += "-" + globalAlias.alias;
+      if (globalAlias.alias != null && globalAlias.alias != "") alias += " - " + globalAlias.alias;
       return { alias: alias, color: globalAlias.color };
     }
     else {
