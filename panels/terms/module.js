@@ -101,6 +101,31 @@ angular.module('kibana.terms', [])
     return field.charAt(0).toUpperCase() + field.slice(1);
   }
 
+  //an include expression can have "{filterfield}" in it in which case we replace that {filterfield} with the current value for that term filter
+  $scope.evaluateIncludeExpression = function(include) {
+    if (include == null || include == "") return include;
+
+    var filterMatch = /.*\{([a-zA-Z0-9_]+?)\}/i.exec(include);
+    if (filterMatch != null) {
+      var result = "";
+      var field = filterMatch[1].toString();
+      var termFilters = filterSrv.getByType("terms");
+      _.each(termFilters, function(filter) {
+        var termField = filter.field.toLowerCase();
+        if (termField == field.toLowerCase()) {
+          if (result != "") result += "|";
+          result += filter.value;
+        }
+      });
+
+      if (result != "") result = "(" + result + ")";
+      result = include.replace(new RegExp("\\{" + field + "\\}", "gi"), result);
+      return result;
+    }
+
+    return include;
+  }
+
   $scope.get_data = function(segment,query_id) {
     delete $scope.panel.error;
 
@@ -131,7 +156,7 @@ angular.module('kibana.terms', [])
           .facetFilter(facetFilter);
 
         if ($scope.panel.include != null && $scope.panel.include != "")
-          termsFacet = termsFacet.regex($scope.panel.include);
+          termsFacet = termsFacet.regex($scope.evaluateIncludeExpression($scope.panel.include));
 
         if ($scope.panel.termScript != null && $scope.panel.termScript != "")
           termsFacet = termsFacet.scriptField($scope.panel.termScript);
