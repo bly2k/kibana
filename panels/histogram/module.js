@@ -75,8 +75,8 @@ angular.module('kibana.histogram', [])
     decimalSeparator: ".",
     commaSeparator: ",",
     formatString: "{0}",
-    queryString: "",
-    valueScript: "",
+    queryString: null,
+    valueScript: null,
     hits: true
   };
 

@@ -20,7 +20,7 @@ angular.module('kibana.stackedstats', [])
     arrangement : 'horizontal',
     chart       : 'bar',
     counter_pos : 'above',
-    stackCharts : [], //array of { statistic: "count", field: "@timestamp", alias: "", queryString: "" }
+    stackCharts : [], //array of { statistic: "count", field: "@timestamp", alias: "", queryString: "", valueScript: "" }
     decimals: 0,
     decimalSeparator: ".",
     commaSeparator: ",",
@@ -67,11 +67,11 @@ angular.module('kibana.stackedstats', [])
   };
 
   $scope.addStackChart = function() {
-    $scope.panel.stackCharts.push({ statistic: "count", field: null, alias: null, queryString: null });
+    $scope.panel.stackCharts.push({ statistic: "count", field: null, alias: null, queryString: null, valueScript: null });
     $scope.set_refresh(true);
   }
 
-  $scope.buildFacet = function(stackId, statistic, field, queryString, facetFilter) {
+  $scope.buildFacet = function(stackId, statistic, field, queryString, valueScript, facetFilter) {
     var facet = null;
 
     if (statistic != "hits" && (field == null || field == "")) {
@@ -108,8 +108,13 @@ angular.module('kibana.stackedstats', [])
 
       default:
         facet = $scope.ejs.StatisticalFacet(stackId)
-          .field(field)
           .facetFilter(facetFilter);
+
+        if (valueScript != null && valueScript != "")
+          facet = facet.script(valueScript);
+        else
+          facet = facet.field(field);
+
         break;
     }
 
@@ -168,7 +173,7 @@ angular.module('kibana.stackedstats', [])
     var stackId = 0;
     _.each($scope.panel.stackCharts, function (item) {
       var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, item.queryString]);
-      var facet = $scope.buildFacet(stackId, item.statistic, item.field, item.queryString, facetFilter);
+      var facet = $scope.buildFacet(stackId, item.statistic, item.field, item.queryString, item.valueScript, facetFilter);
       if (facet == null) return;
       $scope.panel.queries.ids.push(stackId);
       stackId++;

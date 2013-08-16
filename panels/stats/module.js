@@ -22,7 +22,8 @@ angular.module('kibana.stats', [])
     termsCountMax: 100000,
     style: {},
     formatString: "{0}",
-    spyable : true
+    spyable : true,
+    valueScript: null
   };
 
   _.defaults($scope.panel, _d);
@@ -111,14 +112,18 @@ angular.module('kibana.stats', [])
         break;
 
       default:
-        request = request
-         .facet($scope.ejs.StatisticalFacet('stats')
-          .field($scope.panel.field)
-          .facetFilter(facetFilter)).size(0);
+        var facet = $scope.ejs.StatisticalFacet('stats')
+          .facetFilter(facetFilter);
+
+        if ($scope.panel.valueScript != null && $scope.panel.valueScript != "")
+          facet = facet.script($scope.panel.valueScript);
+        else
+          facet = facet.field($scope.panel.field);
+
+        request = request.facet(facet).size(0);
+
         break;
     }
-
-    //alert(request.toString());
 
     // Populate the inspector panel
     $scope.populate_modal(request);

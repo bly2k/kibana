@@ -12,7 +12,10 @@
     <div class="span2">
       <label class="small">Alias</label>
     </div>
-    <div class="span4">
+    <div class="span2">
+      <label class="small">Value Script</label>
+    </div>
+    <div class="span2">
       <label class="small">Querystring Filter</label>
     </div>
   </div>
@@ -26,8 +29,11 @@
     <div class="span2">
       <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.alias">
     </div>
-    <div class="span4">
-      <input ng-change="set_refresh(true)" type="text" class="input-large" ng-model="item.queryString">
+    <div class="span2">
+      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.valueScript" ng-disabled="!(item.statistic == 'mean' || item.statistic == 'min' || item.statistic == 'max' || item.statistic == 'total')" >
+    </div>
+    <div class="span2">
+      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.queryString">
     </div>
     <div class="span2">
       <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
