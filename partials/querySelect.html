@@ -1,26 +1,27 @@
-  <style>
-    .querySelect .query {
-      margin-right: 5px;
-    }
-    .querySelect .selected {
-      border: 3px solid;
-    }
-    .querySelect .unselected {
-      border: 0px solid;
-    }
-  </style>
   <div class="row-fluid">
-    <h4>Queries</h4>
+    <style>
+      .querySelect .query {
+        margin-right: 5px;
+      }
+      .querySelect .selected {
+        border: 3px solid;
+      }
+      .querySelect .unselected {
+        border: 0px solid;
+      }
+    </style>
     <div class="span2" style="margin-left:0px">
+      <label class="small">Queries</label>
       <select class="input-small" ng-change="set_refresh(true);" ng-model="panel.queries.mode" ng-options="f for f in ['all','pinned','unpinned','selected','none','index']"></select>
     </div>
-    <div class="span6" ng-show="panel.queries.mode == 'none'">
+    <div class="span10" ng-show="panel.queries.mode == 'none'">
       This option ignores all queries except for filters <br /><label class="small">(Note: Feature implemented for Terms, Stats, Histogram, StackedStats, TableStats)</label>
     </div>
-    <div class="span6" ng-show="panel.queries.mode == 'index'">
+    <div class="span10" ng-show="panel.queries.mode == 'index'">
       This option ignores all queries and all filters <br /><label class="small">(Note: Feature implemented for Terms, Stats, Histogram, StackedStats, TableStats)</label>
     </div>
-    <div class="span9 querySelect" ng-show="panel.queries.mode == 'selected'">
+    <div class="span10 querySelect" ng-show="panel.queries.mode == 'selected'">
+      <label class="small">Selected Queries</label>
       <span ng-style="{'border-color': querySrv.list[id].color}" ng-class="{selected:_.contains(panel.queries.ids,id),unselected:!_.contains(panel.queries.ids,id)}" ng-repeat="id in querySrv.ids" ng-click="panel.queries.ids = _.toggleInOut(panel.queries.ids,id);set_refresh(true);" class="query pointer badge">
         <i class="icon-circle" ng-style="{color: querySrv.list[id].color}"></i>
         <span> {{querySrv.list[id].alias || querySrv.list[id].query}}</span>
@@ -28,7 +29,7 @@
     </div>
   </div>
   <div class="row-fluid">
-    <div class="span9" style="margin-left:0px">
+    <div class="span10" style="margin-left:0px">
       <label class="small">Querystring Filter (Note: Feature implemented for Terms, Stats, Histogram, StackedStats, TableStats)</label>
       <textarea ng-model="panel.queries.queryString" rows="2" style="width:95%" ng-change="set_refresh(true)"></textarea>
     </div>

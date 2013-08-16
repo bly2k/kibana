@@ -4,6 +4,9 @@ angular.module('kibana.tablestats', [])
 .controller('tablestats', function ($scope, querySrv, dashboard, filterSrv)
 {
   $scope.panelMeta = {
+    editorTabs : [
+      {title:'Queries', src:'partials/querySelect.html'}
+    ],
     status: "Stable",
     description: "Displays a table of statistical aggregrations (count, total, avg, max, min, terms/distinct count, hits) grouped by a terms field."
   };
