@@ -143,8 +143,8 @@ angular.module('kibana.histogram', [])
     return $scope.panel.stackCharts.length > 0;
   }
 
-  $scope.hasNoQueries = function () {
-    return $scope.panel.queries.mode == "none" || $scope.panel.queries.mode == "index";
+  $scope.hasQueries = function () {
+    return !($scope.panel.queries.mode == "none" || $scope.panel.queries.mode == "index");
   }
 
   $scope.getStackChartAlias = function (id) {
@@ -192,7 +192,7 @@ angular.module('kibana.histogram', [])
     var _segment = _.isUndefined(segment) ? 0 : segment;
     var request = $scope.ejs.Request().indices(dashboard.indices[_segment]);
 
-    if (!$scope.hasStackCharts() && !$scope.hasNoQueries()) {
+    if (!$scope.hasStackCharts() && $scope.hasQueries()) {
       $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
 
       // Build the query

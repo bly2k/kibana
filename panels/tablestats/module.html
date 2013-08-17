@@ -1,13 +1,13 @@
 <kibana-panel ng-controller='tablestats' ng-init="init()">
-  <span ng-show="panel.spyable" style="position:absolute;right:0px;top:0px" class='panelextra pointer'>
-    <i bs-modal="'partials/modal.html'" class="icon-eye-open"></i>
+  <span ng-show="panel.spyable" class='spy panelextra pointer'>
+    <i bs-modal="'partials/inspector.html'" class="icon-eye-open"></i>
   </span>
 
   <table ng-style="panel.style" class="table table-striped table-condensed">  
     <thead>
       <th>{{getTermAlias()}}</th>
       <th></th>
-      <th ng-repeat="chart in panel.stackCharts" style="text-align:center" ng-click="setSort($index)">
+      <th ng-repeat="chart in panel.stackCharts" style="text-align:right" ng-click="setSort($index)">
         <span class="pointer">
           {{getStatisticAlias($index)}}
           <i ng-show='getSortParams().chartIndex == $index' class="pointer link" ng-class="{'icon-chevron-up': getSortParamsOrder() == 'asc','icon-chevron-down': getSortParamsOrder() == 'desc'}"></i>

@@ -29,20 +29,16 @@ angular.module('kibana.stackedstats', [])
     commaSeparator: ",",
     termsCountMax: 100000,
     formatString: "{0}",
-    spyable : true
+    spyable : true,
+    alias: null,
+    valueAlias: null
   };
 
   _.defaults($scope.panel, _d);
 
   // I really don't like this function, too much dom manip. Break out into directive?
   $scope.populate_modal = function(request) {
-    $scope.modal = {
-      title: "Inspector",
-      body : "<h5>Last Elasticsearch Query</h5><pre>"+
-        'curl -XGET '+config.elasticsearch+'/'+dashboard.indices+"/_search?pretty -d'\n"+
-        angular.toJson(JSON.parse(request.toString()),true)+
-      "'</pre>", 
-    }; 
+    $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
   };
 
   $scope.set_refresh = function (state)
@@ -148,6 +144,18 @@ angular.module('kibana.stackedstats', [])
     return result;
   }
 
+  $scope.getStatisticAlias = function() {
+    if ($scope.panel.alias != null && $scope.panel.alias != "") 
+      return $scope.panel.alias;
+    return "Statistic";
+  }
+
+  $scope.getValueAlias = function() {
+    if ($scope.panel.valueAlias != null && $scope.panel.valueAlias != "") 
+      return $scope.panel.valueAlias;
+    return "Value";
+  }
+
   $scope.getStackAlias = function(stack) {
     var result = stack.alias;
     if (result == null || result == "") {
@@ -212,7 +220,7 @@ angular.module('kibana.stackedstats', [])
     });
   };
 
-  $scope.formatMetricLabel = function(metric) {
+  $scope.formatMetricValue = function(metric) {
     var formatted = $.number(metric, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
     if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != "")
       formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
@@ -348,7 +356,7 @@ angular.module('kibana.stackedstats', [])
           var value = scope.panel.chart === 'bar' ? 
             item.datapoint[1] : item.datapoint[1][0][1];
 
-          var formatted = scope.formatMetricLabel(value);
+          var formatted = scope.formatMetricValue(value);
 
           tt(pos.pageX, pos.pageY,
             "<div style='vertical-align:middle;border-radius:10px;display:inline-block;background:"+
