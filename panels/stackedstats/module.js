@@ -83,8 +83,7 @@ angular.module('kibana.stackedstats', [])
       return null;
     };
 
-    switch (statistic)
-    {
+    switch (statistic) {
       case "termscount":
         facet = $scope.ejs.TermsFacet(stackId)
           .field(field)
@@ -124,8 +123,7 @@ angular.module('kibana.stackedstats', [])
     var decimals = !_.isUndefined($scope.panel.decimals) ? $scope.panel.decimals : 0;
     
     var result = 0;
-    switch (statistic)
-    {
+    switch (statistic) {
       case "termscount": 
         result = facet.terms.length;
         break;
@@ -171,9 +169,15 @@ angular.module('kibana.stackedstats', [])
     delete $scope.panel.error;
 
     // Make sure we have everything for the request to complete
-    if (dashboard.indices.length === 0 || $scope.panel.field == "") {
+    if (dashboard.indices.length === 0) {
       return;
     }
+
+    if ($scope.panel.chart == "ratio" || $scope.panel.chart == "percent")
+      if ($scope.panel.stackCharts.length < 2) {
+        $scope.panel.error = "Ratio/percent requires at least 2 stacked metrics.";
+        return;
+      }
 
     $scope.panelMeta.loading = true;
 
@@ -205,15 +209,33 @@ angular.module('kibana.stackedstats', [])
         var k = 0;
         $scope.data = [];
 
-        _.each($scope.panel.queries.ids, function(id) {
-          var v = results.facets[id];
-          var stack = $scope.panel.stackCharts[k];
-          var value = $scope.getStatistic(v, stack.statistic);
-          var label = $scope.getStackAlias(stack);
-          var slice = { label : label, data : [[k,value]], actions: true}; 
-          $scope.data.push(slice);
-          k = k + 1;
-        });
+        switch ($scope.panel.chart) {
+          case "ratio":
+            var n = $scope.getStatistic(results.facets[$scope.panel.queries.ids[0]], $scope.panel.stackCharts[0].statistic);
+            var d = $scope.getStatistic(results.facets[$scope.panel.queries.ids[1]], $scope.panel.stackCharts[1].statistic);
+            var r = n / d;
+            $scope.statistic = $scope.formatMetricValue(r);
+            break;
+
+          case "percent": 
+            var n = $scope.getStatistic(results.facets[$scope.panel.queries.ids[0]], $scope.panel.stackCharts[0].statistic);
+            var d = $scope.getStatistic(results.facets[$scope.panel.queries.ids[1]], $scope.panel.stackCharts[1].statistic);
+            var r = 100 * (n / d);
+            $scope.statistic = $scope.formatMetricValue(r);
+            break;
+
+          default:
+            _.each($scope.panel.queries.ids, function(id) {
+              var v = results.facets[id];
+              var stack = $scope.panel.stackCharts[k];
+              var value = $scope.getStatistic(v, stack.statistic);
+              var label = $scope.getStackAlias(stack);
+              var slice = { label : label, data : [[k,value]], actions: true}; 
+              $scope.data.push(slice);
+              k = k + 1;
+            });
+            break;
+        }
 
         $scope.$emit('render');
       });
@@ -222,7 +244,7 @@ angular.module('kibana.stackedstats', [])
 
   $scope.formatMetricValue = function(metric) {
     var formatted = $.number(metric, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
-    if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != "")
+    if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != null && $scope.panel.formatString != "")
       formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
     return formatted;
   }

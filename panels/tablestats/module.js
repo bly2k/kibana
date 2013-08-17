@@ -182,7 +182,7 @@ angular.module('kibana.tablestats', [])
       return;
     }
 
-    if ($scope.panel.field == null || $scope.panel.field == "") {
+    if ($scope.panel.field == null || $scope.panel.field == null || $scope.panel.field == "") {
       $scope.panel.error = "Terms field must be specified";
       return;
     }
@@ -246,7 +246,7 @@ angular.module('kibana.tablestats', [])
                 $scope.getSecondaryStatistic($scope.secondaryResults, c.toString(), term.term, chart.statistic);
               
               var formatted = $.number(stat, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
-              if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != "")
+              if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != null && $scope.panel.formatString != "")
                 formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
 
               row.push(formatted);

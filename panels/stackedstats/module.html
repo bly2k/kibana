@@ -40,6 +40,7 @@
   </div>
   <!-- END Pie or Bar chart -->
 
+  <!-- table style -->
   <table ng-style="panel.style" class="table table-striped table-condensed" ng-show="panel.chart == 'table'">  
     <thead>
       <th>{{getStatisticAlias()}}</th><th style="text-align:right">{{getValueAlias()}}</th>
@@ -49,4 +50,7 @@
       <td style="text-align:right">{{formatMetricValue(term.data[0][1])}}</td>
     </tr>
   </table>
+
+  <!-- ratio/percent style -->
+  <p ng-show="panel.chart == 'ratio' || panel.chart == 'percent'" ng-style='panel.style' ng-bind-html="statistic"></p>
 </kibana-panel>

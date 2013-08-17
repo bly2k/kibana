@@ -154,7 +154,7 @@ angular.module('kibana.stats', [])
         }
 
         var formatted = $.number(statistic, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
-        if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != "")
+        if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != null && $scope.panel.formatString != "")
           formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
 
         $scope.statistic = formatted;
