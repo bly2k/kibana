@@ -64,7 +64,7 @@ angular.module('kibana.bettermap', [])
     $scope.$emit('draw');
   };
 
-  $scope.getlonLatField = function() {
+  $scope.getLonLatField = function() {
     if ($scope.panel.field == null || $scope.panel.field == "") return null;
     var parts = $scope.panel.field.split(",");
     if (parts.length <= 0) return null;
@@ -99,7 +99,7 @@ angular.module('kibana.bettermap', [])
     var filterParts = querySrv.getQueryFilterParts(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
 
     var fields = [];
-    var lonLatField = $scope.getlonLatField();
+    var lonLatField = $scope.getLonLatField();
     if (!_.isUndefined(lonLatField.lonlat)) fields.push(lonLatField.lonlat);
     if (!_.isUndefined(lonLatField.lon)) fields.push(lonLatField.lon);
     if (!_.isUndefined(lonLatField.lat)) fields.push(lonLatField.lat);
