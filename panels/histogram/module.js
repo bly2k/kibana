@@ -520,7 +520,7 @@ angular.module('kibana.histogram', [])
             "<div style='vertical-align:middle;display:inline-block;background:"+
             item.series.color+";height:15px;width:15px;border-radius:10px;'></div> "+
             formatted + " @ " + 
-            moment(time).format(hover_time_format(scope.panel.interval)));
+            moment.utc(time).format(hover_time_format(scope.panel.interval)));
         } else {
           $("#pie-tooltip").remove();
         }

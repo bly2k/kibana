@@ -48,33 +48,6 @@
     <button class="btn btn-success " ng-click="addStackChart()" style="">Add Metric</button>
   </div> 
   <div class="row-fluid">
-    <div class="span2"> 
-      <label class="small">Style</label> 
-      <select class="input-small" ng-model="panel.chart" ng-options="f for f in ['bar','pie','table','ratio','percent']" ng-change="set_refresh(true)"></select></span>
-    </div>
-    <div class="span8" ng-show="panel.chart == 'ratio' || panel.chart == 'percent'"> 
-      <label class="small">&nbsp;</label> 
-      <small>Note: In <strong>{{panel.chart}}</strong> style, the first 2 metrics will be used to compute the statistic</small>
-    </div>
-    <div class="span2" ng-show="panel.chart == 'bar' || panel.chart == 'pie'"> 
-      <label class="small">Legend</label> 
-      <select class="input-small" ng-model="panel.counter_pos" ng-options="f for f in ['above','below','none']"></select></span>
-    </div>
-    <div class="span3" ng-show="(panel.chart == 'bar' || panel.chart == 'pie') && panel.counter_pos != 'none'">
-      <label class="small" >Legend Format</label> 
-      <select class="input-small" ng-model="panel.arrangement" ng-options="f for f in ['horizontal','vertical']"></select></span>
-    </div>
-    <div class="span1" ng-show='panel.chart == "pie"'>
-      <label class="small">Donut</label><input type="checkbox" ng-model="panel.donut" ng-checked="panel.donut">
-    </div>
-    <div class="span1" ng-show='panel.chart == "pie"'>
-      <label class="small">Tilt</label><input type="checkbox" ng-model="panel.tilt" ng-checked="panel.tilt">
-    </div>
-    <div class="span1" ng-show='panel.chart == "pie"'>
-      <label class="small">Labels</label><input type="checkbox" ng-model="panel.labels" ng-checked="panel.labels">
-    </div>
-  </div>
-  <div class="row-fluid">
     <div class="span2">
       <label class="small">Statistic Alias</label>
       <input type="text" class="input-small" ng-model="panel.alias" ng-change="set_refresh(true)">
@@ -108,6 +81,33 @@
     <div class="span2">
       <label class="small">Comma Separator</label>
       <input type="text" class="input-small" ng-model="panel.commaSeparator" ng-change="set_refresh(true)">
+    </div>
+  </div>
+  <div class="row-fluid">
+    <div class="span2"> 
+      <label class="small">Style</label> 
+      <select class="input-small" ng-model="panel.chart" ng-options="f for f in ['bar','pie','table','ratio','percent']" ng-change="set_refresh(true)"></select></span>
+    </div>
+    <div class="span8" ng-show="panel.chart == 'ratio' || panel.chart == 'percent'"> 
+      <label class="small">&nbsp;</label> 
+      <small>Note: In <strong>{{panel.chart}}</strong> style, the first 2 metrics will be used to compute the statistic</small>
+    </div>
+    <div class="span2" ng-show="panel.chart == 'bar' || panel.chart == 'pie'"> 
+      <label class="small">Legend</label> 
+      <select class="input-small" ng-model="panel.counter_pos" ng-options="f for f in ['above','below','none']"></select></span>
+    </div>
+    <div class="span3" ng-show="(panel.chart == 'bar' || panel.chart == 'pie') && panel.counter_pos != 'none'">
+      <label class="small" >Legend Format</label> 
+      <select class="input-small" ng-model="panel.arrangement" ng-options="f for f in ['horizontal','vertical']"></select></span>
+    </div>
+    <div class="span1" ng-show='panel.chart == "pie"'>
+      <label class="small">Donut</label><input type="checkbox" ng-model="panel.donut" ng-checked="panel.donut">
+    </div>
+    <div class="span1" ng-show='panel.chart == "pie"'>
+      <label class="small">Tilt</label><input type="checkbox" ng-model="panel.tilt" ng-checked="panel.tilt">
+    </div>
+    <div class="span1" ng-show='panel.chart == "pie"'>
+      <label class="small">Labels</label><input type="checkbox" ng-model="panel.labels" ng-checked="panel.labels">
     </div>
   </div>
 </div>
