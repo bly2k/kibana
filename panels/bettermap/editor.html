@@ -1,7 +1,7 @@
   <div class="row-fluid">    
     <div class="span4">
       <form>
-        <h6>Coordinate Field <i class="icon-question-sign" bs-tooltip="'Single geoJSON array field [lat,lon], or 2 comma separated fields: latfield,lonfield'"></i></h6>
+        <h6>Coordinate Field <i class="icon-question-sign" bs-tooltip="'Single field containing geoJSON array [lat,lon], or 2 comma separated numeric fields: latfield,lonfield'"></i></h6>
         <input ng-change="set_refresh(true)" bs-typeahead="fields.list" type="text" class="input-large" ng-model="panel.field">
       </form>
     </div>
