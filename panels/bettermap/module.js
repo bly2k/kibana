@@ -49,6 +49,27 @@ angular.module('kibana.bettermap', [])
     $scope.get_data();
   };
 
+  $scope.set_refresh = function (state)
+  {
+    $scope.refresh = state;
+  };
+
+  $scope.close_edit = function ()
+  {
+    if ($scope.refresh)
+    {
+      $scope.get_data();
+    }
+    $scope.refresh = false;
+    $scope.$emit('draw');
+  };
+
+  $scope.getLongLatField = function() {
+    if ($scope.panel.field == null || $scope.panel.field == "") return null;
+    var parts = $scope.panel.field.split(",");
+    return parts;
+  }
+
   $scope.get_data = function(segment,query_id) {
     $scope.panel.error =  false;
 
@@ -74,19 +95,21 @@ angular.module('kibana.bettermap', [])
 
     var _segment = _.isUndefined(segment) ? 0 : segment;
 
-    $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
-    // This could probably be changed to a BoolFilter 
-    var boolQuery = $scope.ejs.BoolQuery();
-    _.each($scope.panel.queries.ids,function(id) {
-      boolQuery = boolQuery.should(querySrv.getEjsObj(id));
+    var filterParts = querySrv.getQueryFilterParts(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+
+    var fields = [];
+    var longLatField = $scope.getLongLatField();
+    fields.push.apply(fields, longLatField);
+    fields.push($scope.panel.tooltip);
+
+    var filter = filterParts[1];
+    _.each(longLatField, function(f) {
+      filter = filter.must($scope.ejs.ExistsFilter(f));
     });
 
     var request = $scope.ejs.Request().indices(dashboard.indices[_segment])
-      .query($scope.ejs.FilteredQuery(
-        boolQuery,
-        filterSrv.getBoolFilter(filterSrv.ids).must($scope.ejs.ExistsFilter($scope.panel.field))
-      ))
-      .fields([$scope.panel.field,$scope.panel.tooltip])
+      .query($scope.ejs.FilteredQuery(filterParts[0], filter))
+      .fields(fields)
       .size($scope.panel.size);
 
     if(!_.isNull(timeField)) {
@@ -120,8 +143,10 @@ angular.module('kibana.bettermap', [])
 
         scripts.wait(function(){
           $scope.data = $scope.data.concat(_.map(results.hits.hits, function(hit) {
+            var lat = longLatField.length == 1 ? hit.fields[longLatField[0]][1] : hit.fields[longLatField[1]];
+            var long = longLatField.length == 1 ? hit.fields[longLatField[0]][0] : hit.fields[longLatField[0]];
             return {
-              coordinates : new L.LatLng(hit.fields[$scope.panel.field][1],hit.fields[$scope.panel.field][0]),
+              coordinates : new L.LatLng(lat,long),
               tooltip : hit.fields[$scope.panel.tooltip]
             };
           }));
@@ -179,7 +204,7 @@ angular.module('kibana.bettermap', [])
         scripts.wait(function(){
           if(_.isUndefined(map)) {
             map = L.map(attrs.id, {
-              scrollWheelZoom: false,
+              scrollWheelZoom: true,
               center: [40, -86],
               zoom: 10
             });

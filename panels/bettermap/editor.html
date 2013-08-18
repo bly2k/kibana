@@ -1,14 +1,14 @@
   <div class="row-fluid">    
     <div class="span4">
       <form>
-        <h6>Coordinate Field <i class="icon-question-sign" bs-tooltip="'geoJSON array! Long,Lat NOT Lat,Long'"></i></h6>
-        <input  bs-typeahead="fields.list" type="text" class="input-small" ng-model="panel.field">
+        <h6>Coordinate Field <i class="icon-question-sign" bs-tooltip="'Single geoJSON array field [lat,lon], or 2 comma separated fields: latfield,lonfield'"></i></h6>
+        <input  bs-typeahead="fields.list" type="text" class="input-large" ng-model="panel.field">
       </form>
     </div>
     <div class="span4">
       <form>
         <h6>Tooltip Field</h6>
-        <input  bs-typeahead="fields.list" type="text" class="input-small" ng-model="panel.tooltip">
+        <input  bs-typeahead="fields.list" type="text" class="input-large" ng-model="panel.tooltip">
       </form>
     </div>
     <div class="span2"><h6>Max Points</h6> 

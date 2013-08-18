@@ -55,7 +55,7 @@
     </tr>
   </table>
 
-  <select ng-style="panel.style" ng-show="panel.chart == 'dropdown'" ng-model="panel.filterTerm" ng-change="selectTermFilter()" ng-options="term.label as term.label for term in data" style="width:100%">
+  <select ng-style="panel.style" ng-show="panel.chart == 'dropdown'" ng-model="panel.filterTerm" ng-change="buildSelectFilter()" ng-options="term.label as term.label for term in data" style="width:100%">
     <option value=""></option>
   </select>
 </kibana-panel>

@@ -78,8 +78,6 @@ angular.module('kibana.stats', [])
 
     var request = $scope.ejs.Request().indices(dashboard.indices);
 
-    $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
-
     var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
 
     var mode = $scope.panel.statistic;

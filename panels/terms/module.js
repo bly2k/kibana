@@ -78,12 +78,21 @@ angular.module('kibana.terms', [])
 
   };
 
-  $scope.selectTermFilter = function() {
+  $scope.getFilterField = function() {
+    var result = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : $scope.panel.field;
+    return result;
+  }
+
+  $scope.buildSelectFilter = function() {
     var deleted = $scope.panel.filterId != null ? filterSrv.remove($scope.panel.filterId) : false;
     $scope.panel.filterId = null;
     if ($scope.panel.filterTerm != null && $scope.panel.filterTerm != "") {
-      var filterField = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : $scope.panel.field;
-      $scope.panel.filterId = filterSrv.set({type: 'terms', field: filterField, value: $scope.panel.filterTerm, mandate: 'must'});
+      var filterField = $scope.getFilterField();
+      var termIsScript = $scope.panel.termScript != null && $scope.panel.termScript != "";
+      if (termIsScript)
+        $scope.panel.filterId = filterSrv.set({type: 'field', field: filterField, query: $scope.panel.filterTerm.toString(), mandate: 'must'});
+      else
+        $scope.panel.filterId = filterSrv.set({type: 'terms', field: filterField, value: $scope.panel.filterTerm, mandate: 'must'});
     }
     dashboard.refresh();
   }
@@ -228,13 +237,16 @@ angular.module('kibana.terms', [])
   };
 
   $scope.build_search = function(term,negate) {
-    var filterField = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : $scope.panel.field;
+    if (_.isUndefined(negate)) negate = false;
+    var filterField = $scope.getFilterField();
     if(_.isUndefined(term.meta)) {
-      filterSrv.set({type:'terms',field:filterField,value:term.label,
-        mandate:(negate ? 'mustNot':'must')});
+      var termIsScript = $scope.panel.termScript != null && $scope.panel.termScript != "";
+      if (termIsScript)
+        filterSrv.set({type: 'field', field: filterField, query: term.label, mandate: (negate ? 'mustNot':'must')});
+      else
+        filterSrv.set({type:'terms',field:filterField,value:term.label, mandate:(negate ? 'mustNot':'must')});
     } else if(term.meta === 'missing') {
-      filterSrv.set({type:'exists',field:filterField,
-        mandate:(negate ? 'must':'mustNot')});
+      filterSrv.set({type:'exists',field:filterField, mandate:(negate ? 'must':'mustNot')});
     } else {
       return;
     }
@@ -331,8 +343,7 @@ angular.module('kibana.terms', [])
             }
             if(scope.panel.chart === 'pie') {
               var labelFormat = function(label, series){
-                return '<div ng-click="build_search(panel.field,\''+label+'\')'+
-                  ' "style="font-size:8pt;text-align:center;padding:2px;color:white;">'+
+                return '<div style="font-size:8pt;text-align:center;padding:2px;color:white;">'+
                   label+'<br/>'+Math.round(series.percent)+'%</div>';
               };
 

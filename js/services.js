@@ -305,7 +305,8 @@ angular.module('kibana.services', [])
     }
   };
 
-  this.getFacetFilter = function (filterSrv, queries, queryString) {
+  //returns array of [query, filter]
+  this.getQueryFilterParts = function (filterSrv, queries, queryString) {
     var facetQuery = ejs.MatchAllQuery();
 
     // This could probably be changed to a BoolFilter 
@@ -340,8 +341,14 @@ angular.module('kibana.services', [])
     if (facetFilter.must().length <= 0)
       facetFilter = facetFilter.must(ejs.MatchAllFilter());
 
-    facetFilter = ejs.QueryFilter(ejs.FilteredQuery(facetQuery, facetFilter));
+    var result = [facetQuery, facetFilter];
 
+    return result;
+  };
+
+  this.getFacetFilter = function (filterSrv, queries, queryString) {
+    var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
+    var facetFilter = ejs.QueryFilter(ejs.FilteredQuery(filterParts[0], filterParts[1]));
     return facetFilter;
   };
 
@@ -489,7 +496,8 @@ angular.module('kibana.services', [])
     case 'querystring':
       return ejs.QueryFilter(ejs.QueryStringQuery(filter.query)).cache(true);
     case 'field':
-      return ejs.QueryFilter(ejs.FieldQuery(filter.field,filter.query)).cache(true);
+      return ejs.QueryFilter(ejs.FieldQuery(filter.field,filter.query)
+        .defaultOperator(_.isUndefined(filter.defaultOperator) || filter.defaultOperator == null ? "AND" : filter.defaultOperator)).cache(true);
     case 'terms':
       return ejs.TermsFilter(filter.field,filter.value);
     case 'exists':
