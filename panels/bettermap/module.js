@@ -64,10 +64,11 @@ angular.module('kibana.bettermap', [])
     $scope.$emit('draw');
   };
 
-  $scope.getLongLatField = function() {
+  $scope.getlonLatField = function() {
     if ($scope.panel.field == null || $scope.panel.field == "") return null;
     var parts = $scope.panel.field.split(",");
-    return parts;
+    if (parts.length <= 0) return null;
+    return parts.length == 1 ? { lonlat: parts[0] } : { lon: parts[0], lat: parts[1] }
   }
 
   $scope.get_data = function(segment,query_id) {
@@ -98,17 +99,19 @@ angular.module('kibana.bettermap', [])
     var filterParts = querySrv.getQueryFilterParts(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
 
     var fields = [];
-    var longLatField = $scope.getLongLatField();
-    fields.push.apply(fields, longLatField);
+    var lonLatField = $scope.getlonLatField();
+    if (!_.isUndefined(lonLatField.lonlat)) fields.push(lonLatField.lonlat);
+    if (!_.isUndefined(lonLatField.lon)) fields.push(lonLatField.lon);
+    if (!_.isUndefined(lonLatField.lat)) fields.push(lonLatField.lat);
     fields.push($scope.panel.tooltip);
 
-    var filter = filterParts[1];
-    _.each(longLatField, function(f) {
-      filter = filter.must($scope.ejs.ExistsFilter(f));
-    });
+    var filter = filterParts.filter;
+    if (!_.isUndefined(lonLatField.lonlat)) filter = filter.must($scope.ejs.ExistsFilter(lonLatField.lonlat));
+    if (!_.isUndefined(lonLatField.lon)) filter = filter.must($scope.ejs.ExistsFilter(lonLatField.lon));
+    if (!_.isUndefined(lonLatField.lat)) filter = filter.must($scope.ejs.ExistsFilter(lonLatField.lat));
 
     var request = $scope.ejs.Request().indices(dashboard.indices[_segment])
-      .query($scope.ejs.FilteredQuery(filterParts[0], filter))
+      .query($scope.ejs.FilteredQuery(filterParts.query, filter))
       .fields(fields)
       .size($scope.panel.size);
 
@@ -143,10 +146,10 @@ angular.module('kibana.bettermap', [])
 
         scripts.wait(function(){
           $scope.data = $scope.data.concat(_.map(results.hits.hits, function(hit) {
-            var lat = longLatField.length == 1 ? hit.fields[longLatField[0]][1] : hit.fields[longLatField[1]];
-            var long = longLatField.length == 1 ? hit.fields[longLatField[0]][0] : hit.fields[longLatField[0]];
+            var lat = !_.isUndefined(lonLatField.lonlat) ? hit.fields[lonLatField.lonlat][1] : hit.fields[lonLatField.lat];
+            var lon = !_.isUndefined(lonLatField.lonlat) ? hit.fields[lonLatField.lonlat][0] : hit.fields[lonLatField.lon];
             return {
-              coordinates : new L.LatLng(lat,long),
+              coordinates : new L.LatLng(lat,lon),
               tooltip : hit.fields[$scope.panel.tooltip]
             };
           }));

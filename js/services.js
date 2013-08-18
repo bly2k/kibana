@@ -341,14 +341,14 @@ angular.module('kibana.services', [])
     if (facetFilter.must().length <= 0)
       facetFilter = facetFilter.must(ejs.MatchAllFilter());
 
-    var result = [facetQuery, facetFilter];
+    var result = { query: facetQuery, filter: facetFilter };
 
     return result;
   };
 
   this.getFacetFilter = function (filterSrv, queries, queryString) {
     var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
-    var facetFilter = ejs.QueryFilter(ejs.FilteredQuery(filterParts[0], filterParts[1]));
+    var facetFilter = ejs.QueryFilter(ejs.FilteredQuery(filterParts.query, filterParts.filter));
     return facetFilter;
   };
 
