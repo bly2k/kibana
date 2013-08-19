@@ -60,7 +60,7 @@
       <select ng-change="set_refresh(true)" class="input-small" ng-model="item.statistic" ng-options="f for f in ['count','mean','min','max','total']"></select>
     </div>
     <div class="span2">
-      <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="item.field">
+      <input ng-change="setSort(-1); set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="item.field">
     </div>
     <div class="span2">
       <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.alias">
@@ -72,7 +72,7 @@
       <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.queryString">
     </div>
     <div class="span2">
-      <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
+      <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); setSort(-1); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
       <i ng-click="_.move(panel.stackCharts,$index,$index-1); setSort(-1); set_refresh(true);" ng-hide="$first" class="pointer icon-arrow-up"></i>
       <i ng-click="_.move(panel.stackCharts,$index,$index+1); setSort(-1); set_refresh(true);" ng-hide="$last" class="pointer icon-arrow-down"></i>
     </div>

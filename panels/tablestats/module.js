@@ -66,6 +66,7 @@ angular.module('kibana.tablestats', [])
 
   $scope.addStackChart = function() {
     $scope.panel.stackCharts.push({ statistic: "count", field: "", alias: "", queryString: "", valueScript: "" });
+    $scope.setSort(-1);
     $scope.set_refresh(true);
   }
 
