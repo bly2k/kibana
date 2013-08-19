@@ -113,7 +113,7 @@ angular.module('kibana.terms', [])
     return field.charAt(0).toUpperCase() + field.slice(1);
   }
 
-  //an include expression can have "{filterfield}" in it in which case we replace that {filterfield} with the current value for that term filter
+  //an include expression can have "{filterfield}" in it in which case we replace that {filterfield} with the current value for that term/field filter
   $scope.evaluateIncludeExpression = function(include) {
     if (include == null || include == "") return include;
 
@@ -121,12 +121,22 @@ angular.module('kibana.terms', [])
     if (filterMatch != null) {
       var result = "";
       var field = filterMatch[1].toString();
+      
       var termFilters = filterSrv.getByType("terms");
       _.each(termFilters, function(filter) {
-        var termField = filter.field.toLowerCase();
-        if (termField == field.toLowerCase()) {
+        var filterField = filter.field.toLowerCase();
+        if (filterField == field.toLowerCase()) {
           if (result != "") result += "|";
           result += filter.value;
+        }
+      });
+
+      var fieldFilters = filterSrv.getByType("field");
+      _.each(fieldFilters, function(filter) {
+        var filterField = filter.field.toLowerCase();
+        if (filterField == field.toLowerCase()) {
+          if (result != "") result += "|";
+          result += filter.query;
         }
       });
 
