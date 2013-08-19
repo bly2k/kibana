@@ -15,7 +15,7 @@
       </th>
     </thead>
     <tr ng-repeat="term in data">
-      <th nowrap="nowrap"><span ng-click="buildSearch(term[0])" class="pointer" bs-tooltip="'Filter by \'' + term[0] + '\''">{{term[0]}}</span></th>
+      <th><span ng-click="buildSearch(term[0])" class="pointer" bs-tooltip="'Filter by \'' + term[0] + '\''">{{term[0]}}</span></th>
       <td nowrap="nowrap">
         <i class='icon-search pointer' ng-click="buildSearch(term[0])" bs-tooltip="'Filter by \'' + term[0] + '\''"></i> 
         <i class='icon-ban-circle pointer' ng-click="buildSearch(term[0],'mustNot')" bs-tooltip="'Filter except \'' + term[0] + '\''"></i>

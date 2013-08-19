@@ -46,7 +46,7 @@
       <th>{{getStatisticAlias()}}</th><th style="text-align:right">{{getValueAlias()}}</th>
     </thead>
     <tr ng-repeat="term in data">
-      <th nowrap="nowrap">{{term.label}}</th>
+      <th>{{term.label}}</th>
       <td style="text-align:right">{{formatMetricValue(term.data[0][1])}}</td>
     </tr>
   </table>
