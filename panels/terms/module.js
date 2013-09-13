@@ -79,7 +79,9 @@ angular.module('kibana.terms', [])
   };
 
   $scope.getFilterField = function() {
-    var result = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : $scope.panel.field;
+    var termFields = $scope.termFields();
+    var result = $scope.panel.filterField != null && $scope.panel.filterField != "" ? $scope.panel.filterField : 
+      (termFields.length == 1 ? $scope.panel.field : termFields);
     return result;
   }
 
@@ -113,11 +115,11 @@ angular.module('kibana.terms', [])
     return field.charAt(0).toUpperCase() + field.slice(1);
   }
 
-  //an include expression can have "{filterfield}" in it in which case we replace that {filterfield} with the current value for that term/field filter
+  //an include expression can have "{filter:filterfield}" in it in which case we replace that {filter:filterfield} with the current value for that term/field filter
   $scope.evaluateIncludeExpression = function(include) {
     if (include == null || include == "") return include;
 
-    var filterMatch = /.*\{([a-zA-Z0-9_]+?)\}/i.exec(include);
+    var filterMatch = /.*\{filter:([a-zA-Z0-9_]+?)\}/i.exec(include);
     if (filterMatch != null) {
       var result = "";
       var field = filterMatch[1].toString();
@@ -141,11 +143,16 @@ angular.module('kibana.terms', [])
       });
 
       if (result != "") result = "(" + result + ")";
-      result = include.replace(new RegExp("\\{" + field + "\\}", "gi"), result);
+      result = include.replace(new RegExp("\\{filter:" + field + "\\}", "gi"), result);
       return result;
     }
 
     return include;
+  }
+
+  $scope.termFields = function () {
+    var result = $scope.panel.field.split(',');
+    return result;
   }
 
   $scope.get_data = function(segment,query_id) {
@@ -171,7 +178,7 @@ angular.module('kibana.terms', [])
       case "count":
         // Terms mode
         var termsFacet = $scope.ejs.TermsFacet('terms')
-          .field($scope.panel.field)
+          .fields($scope.termFields())
           .size($scope.panel.size)
           .order($scope.panel.order)
           .exclude($scope.panel.exclude)
@@ -246,15 +253,34 @@ angular.module('kibana.terms', [])
     });
   };
 
+  $scope.buildTermsQuery = function(fields, value) {
+    var result = "";
+    _.each(fields, function(field) {
+      if (result != "") result += " OR ";
+      result += "(" + field + ":\"" + value + "\")";
+    });
+    return result;
+  }
+
   $scope.build_search = function(term,negate) {
     if (_.isUndefined(negate)) negate = false;
     var filterField = $scope.getFilterField();
     if(_.isUndefined(term.meta)) {
       var termIsScript = $scope.panel.termScript != null && $scope.panel.termScript != "";
-      if (termIsScript)
-        filterSrv.set({type: 'field', field: filterField, query: term.label, mandate: (negate ? 'mustNot':'must')});
-      else
-        filterSrv.set({type:'terms',field:filterField,value:term.label, mandate:(negate ? 'mustNot':'must')});
+
+      if (!_.isArray(filterField)) {
+        if (termIsScript)
+          filterSrv.set({type: 'field', field: filterField, query: term.label, mandate: (negate ? 'mustNot':'must')});
+        else
+          filterSrv.set({type:'terms', field: filterField, value: term.label, mandate: (negate ? 'mustNot':'must')});
+      }
+      else {
+        if (termIsScript)
+          filterSrv.set({type: 'querystring', query: $scope.buildTermsQuery(filterField, term.label), mandate: (negate ? 'mustNot':'must')});
+        else
+          filterSrv.set({type:'querystring', query: $scope.buildTermsQuery(filterField, term.label), mandate: (negate ? 'mustNot':'must')});
+      }
+
     } else if(term.meta === 'missing') {
       filterSrv.set({type:'exists',field:filterField, mandate:(negate ? 'must':'mustNot')});
     } else {
