@@ -8,7 +8,7 @@ General:
 
 - Panels can be moved up/down/left right on the dashboard
 - Support for additional query options: None, Index
-- Each panel (Terms, Stats, Histogram, StackedStats, TableStats, BetterMap) can have it's own independent querystring filter (no need to predefine and pin any queries up-front)
+- Each panel (Terms, Stats, Histogram, StackedStats, TableStats, BetterMap) can have its own independent querystring filter (no need to predefine and pin any queries up-front)
 
 Terms Panel:
 
@@ -22,7 +22,7 @@ Terms Panel:
 Histogram Panel:
 
 - Support mutiple/stacked histogram statistics (for example, plot average field X vs max field Y vs total field Z)
-- Support Friendly labels/aliases
+- Support friendly labels/aliases
 
 Table Panel:
 
@@ -47,4 +47,4 @@ Table Stats Panel:
 
 Bettermap Panel:
 
-- Support specifying individual long,lat fields. No need to ingest lat longs in specific GeoIP format.
+- Support specifying individual long,lat fields. No need to ingest lat longs in specific GeoIP array/format.
