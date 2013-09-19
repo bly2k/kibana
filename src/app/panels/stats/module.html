@@ -1,0 +1,6 @@
+<div ng-controller='stats' ng-init="init()">
+  <span ng-show="panel.spyable" class='spy panelextra pointer'>
+    <i bs-modal="'app/partials/inspector.html'" class="icon-eye-open"></i>
+  </span>
+  <p ng-style='panel.style' ng-bind-html="statistic"></p>
+</div>
