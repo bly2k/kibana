@@ -36,6 +36,8 @@ define(['angular', 'jquery', 'underscore'], function (angular, $, _) {
     return function(arr) {
       if(_.isObject(arr) && !_.isArray(arr)) {
         return angular.toJson(arr);
+      } else if (_.isArray(arr)) {
+        return arr.join(", ");
       } else {
         return arr.toString();
       }
