@@ -20,7 +20,7 @@ define([
   var module = angular.module('kibana.panels.query', []);
   app.useModule(module);
 
-  module.controller('query', function($scope, querySrv, $rootScope) {
+  module.controller('query', function($scope, querySrv, $rootScope, filterSrv) {
     $scope.panelMeta = {
       status  : "Stable",
       description : "Manage all of the queries on the dashboard. You almost certainly need one of "+
@@ -50,6 +50,11 @@ define([
     $scope.render = function() {
       $rootScope.$broadcast('render');
     };
+
+    $scope.makeFilter = function(id) {
+      filterSrv.set({ type: 'querystring', query: $scope.querySrv.list[id].query, mandate: 'must' });
+      $rootScope.$broadcast('refresh');
+    }
 
     $scope.toggle_pin = function(id) {
       querySrv.list[id].pin = querySrv.list[id].pin ? false : true;
