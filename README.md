@@ -8,7 +8,7 @@ General:
 
 - Panels can be moved up/down/left right on the dashboard
 - Support for additional query options: None, Index
-- Each panel (Terms, Stats, Histogram, StackedStats, TableStats, BetterMap) can have its own independent querystring filter (no need to predefine and pin any queries up-front)
+- Each panel can have its own independent querystring filter (no need to predefine and/or pin any queries up-front)
 
 Terms Panel:
 
@@ -26,7 +26,7 @@ Histogram Panel:
 
 Table Panel:
 
-- Support renaming columns
+- Support friendly column header/labels
 
 Stats Panel
 
