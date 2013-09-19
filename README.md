@@ -48,3 +48,7 @@ Table Stats Panel:
 Bettermap Panel:
 
 - Support specifying individual long,lat fields. No need to ingest lat longs in specific GeoIP array/format.
+
+Query Panel:
+
+- Support ability to convert any query string into a filter
