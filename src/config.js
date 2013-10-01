@@ -49,7 +49,10 @@ function (Settings) {
       'trends',
       'bettermap',
       'query',
-      'terms'
+      'terms',
+      'stackedstats',
+      'stats',
+      'tablestats'
     ]
   });
 });

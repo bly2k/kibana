@@ -415,12 +415,12 @@ function (angular, app, _, $, kbn) {
               if(elem.is(":visible")){
                 //setTimeout(function(){
                   scope.legend = plot.getData();
-                  if(!scope.$$phase) {
-                    scope.$apply();
-                  }
                 //});
               }
 
+              if(!scope.$$phase) {
+                scope.$apply();
+              }
             } catch(e) {
               elem.text(e);
             }
