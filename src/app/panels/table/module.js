@@ -361,9 +361,36 @@ function (angular, app, _, kbn, moment) {
   });
 
   module.filter('tableTruncate', function() {
+    //nasty stuff, maybe there is a library out there that can truncate html better...
+    var stripHighlight = function(text) {
+      var reHighlight = /(<code[^>]*>)/g;
+      var match = reHighlight.exec(text);
+      if (match == null) return text;
+      var markup = match[1].toString();
+      var result = text.replace(reHighlight, "_h_");
+      result = result.replace(/<\/code>/g, "_/h_");
+      return { text: result, markup: markup };
+    };
+
+    var restoreHighlight = function(text, markup) {
+      if (markup == null) return text;
+      var result = text.replace(/_h_/g, markup);
+      result = result.replace(/_\/h_/g, "</code>");
+      return result;
+    }
+
     return function(text,length,factor) {
       if (!_.isUndefined(text) && !_.isNull(text) && text.toString().length > 0) {
-        return text.length > length/factor ? text.substr(0,length/factor)+'...' : text;
+        if (text.length > length/factor) {
+          //we need to take into account highlight markup!
+          var stripped = stripHighlight(text.toString());
+          text = _.isObject(stripped) ? stripped.text : stripped;
+          var result = text.length > length/factor ? text.substr(0,length/factor)+'...' : text;
+          result = restoreHighlight(result, _.isObject(stripped) ? stripped.markup : null);
+          return result;
+        }
+        else
+          return text;
       }
       return '';
     };
