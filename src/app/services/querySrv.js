@@ -130,15 +130,22 @@ function (angular, _, config) {
     };
 
     //returns array of [query, filter]
-    this.getQueryFilterParts = function (filterSrv, queries, queryString) {
+    this.getQueryFilterParts = function (filterSrv, queries, queryString, highlight) {
       var facetQuery = ejs.MatchAllQuery();
+
+      if (!_.isUndefined(highlight) && _.isArray(highlight) && highlight.length > 0) 
+        highlight = ["_all"].concat(highlight);
+      else
+        highlight = null;
 
       // This could probably be changed to a BoolFilter 
       var queryIds = self.idsByMode(queries);
       if (queryIds != null && queryIds.length > 0) {
         facetQuery = ejs.BoolQuery();
         _.each(queryIds, function (id) {
-          facetQuery = facetQuery.should(self.getEjsObj(id));
+          var q = self.getEjsObj(id);
+          if (_.isObject(q) && highlight != null) q = q.fields(highlight);
+          facetQuery = facetQuery.should(q);
         });
       }
 
@@ -172,8 +179,14 @@ function (angular, _, config) {
 
     this.getFacetFilter = function (filterSrv, queries, queryString) {
       var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
-      var facetFilter = ejs.QueryFilter(ejs.FilteredQuery(filterParts.query, filterParts.filter));
-      return facetFilter;
+      var result = ejs.QueryFilter(ejs.FilteredQuery(filterParts.query, filterParts.filter));
+      return result;
+    };
+
+    this.getPanelQuery = function (filterSrv, queries, queryString, highlight) {
+      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString, highlight);
+      var result = ejs.FilteredQuery(filterParts.query, filterParts.filter);
+      return result;
     };
 
     this.getFacetFilterByQueryId = function (filterSrv, id, queryString) {

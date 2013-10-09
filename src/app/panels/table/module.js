@@ -73,7 +73,9 @@ function (angular, app, _, kbn, moment) {
       trimFactor: 300,
       normTimes : true,
       spyable : true,
-      fieldAliases: [{ field: "@fields.timestamp", alias: "Timestamp"} ] //array of [ field, alias ]
+      fieldAliases: [{ field: "@fields.timestamp", alias: "Timestamp"} ], //array of [ field, alias ]
+      highlightColor: null,
+      highlightBgColor: null
     };
     _.defaults($scope.panel,_d);
 
@@ -191,16 +193,9 @@ function (angular, app, _, kbn, moment) {
 
       var request = $scope.ejs.Request().indices(dashboard.indices[_segment]);
 
-      var boolQuery = $scope.ejs.BoolQuery();
-      _.each($scope.panel.queries.ids,function(id) {
-        boolQuery = boolQuery.should(querySrv.getEjsObj(id));
-      });
+      var q = querySrv.getPanelQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString, $scope.panel.highlight);
 
-      request = request.query(
-        $scope.ejs.FilteredQuery(
-          boolQuery,
-          filterSrv.getBoolFilter(filterSrv.ids)
-        ))
+      request = request.query(q)
         .highlight(
           $scope.ejs.Highlight($scope.panel.highlight)
           .fragmentSize(2147483647) // Max size of a 32bit unsigned int
@@ -309,22 +304,59 @@ function (angular, app, _, kbn, moment) {
       return obj;
     };
 
-
+    $scope.foo = function() {
+      return "foo";
+    }
   });
 
   // This also escapes some xml sequences
   module.filter('tableHighlight', function() {
-    return function(text) {
+    return function(text, color, bgColor) {
+      if (_.isUndefined(color) || color == "") color = null;
+      if (_.isUndefined(bgColor) || bgColor == "") bgColor = null;
+
+      var markup = "<code class='highlight' style='";
+      if (color != null) markup += "color: " + color + ";";
+      if (bgColor != null) markup += "background-color: " + bgColor + ";";
+      if (bgColor != null) markup += "border-color: " + bgColor + ";";
+      markup += "'>";
+      var markupClose = '</code>';
+
       if (!_.isUndefined(text) && !_.isNull(text) && text.toString().length > 0) {
         return text.toString().
           replace(/&/g, '&amp;').
           replace(/</g, '&lt;').
           replace(/>/g, '&gt;').
           replace(/\r?\n/g, '<br/>').
-          replace(/@start-highlight@/g, '<code class="highlight">').
-          replace(/@end-highlight@/g, '</code>');
+          replace(/@start-highlight@/g, markup).
+          replace(/@end-highlight@/g, markupClose);
       }
       return '';
+    };
+  });
+
+  module.filter('hitHighlight', function() {
+    var hitHighlight = function(text, color, bgColor) {
+      if (_.isUndefined(color) || color == "") color = null;
+      if (_.isUndefined(bgColor) || bgColor == "") bgColor = null;
+
+      var markup = "<code class='highlight' style='";
+      if (color != null) markup += "color: " + color + ";";
+      if (bgColor != null) markup += "background-color: " + bgColor + ";";
+      if (bgColor != null) markup += "border-color: " + bgColor + ";";
+      markup += "'>";
+      var markupClose = '</code>';
+
+      if (!_.isUndefined(text) && !_.isNull(text) && text.toString().length > 0) {
+        return text.toString().
+          replace(/@start-highlight@/g, markup).
+          replace(/@end-highlight@/g, markupClose);
+      }
+      return '';
+    };
+
+    return function(text, color, bgColor) {
+      return _.isArray(text) ? _.map(text, function(t) { return hitHighlight(t, color, bgColor); }) : hitHighlight(text, color, bgColor);
     };
   });
 
