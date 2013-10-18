@@ -10,6 +10,16 @@
   color: @black;
 }
 
+div.fake-input {
+  background-color: @inputBackground;
+  border: 1px solid @inputBorder;
+  .border-radius(@inputBorderRadius @inputBorderRadius @inputBorderRadius @inputBorderRadius);
+}
+
+form input.ng-invalid {
+  color: @errorText;
+}
+
 .editor-title {
   margin-right: 10px;
   font-size: 1.7em;
@@ -21,6 +31,10 @@
   opacity: 0.5;
   font-size: 0.7em;
   font-weight: normal;
+}
+
+.bordered {
+  border: 1px solid @tableBorder;
 }
 
 .spy {
@@ -36,35 +50,54 @@
 }
 
 .kibana-row {
-  margin-left: 15px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
+}
+
+.row-button {
+  border-left: 1px solid lighten(@bodyBackground, 10%);
+  border-right: 1px solid darken(@bodyBackground, 10%);
+  padding: 2px 7px 0px 7px;
+  float: left;
+}
+
+.row-text {
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 0.9em;
 }
 
 .row-close {
-  color: #bbb;
-  position: absolute;
-  font-size: 9pt;
-  font-weight: 200;
-  padding-left: 35px;
-  padding-top:0px;
+  outline: 1px solid darken(@bodyBackground, 10%);
+  border-top: 1px solid lighten(@bodyBackground, 10%);
+  padding: 0px;
+  margin: 0px;
+  min-height: 24px !important;
+  line-height: 24px;
+  background: darken(@bodyBackground, 3%);
 }
 
 .row-open {
   text-align: right;
-  color: #bbb;
-  margin-top:30px;
+  left:-18px;
   position: absolute;
   font-size: 13pt;
   font-weight: 200;
-  -moz-transform-origin: 40px;
-  -ms-transform-origin: 40px;
-  -o-transform-origin: 40px;
-  -webkit-transform-origin: 40px;
-  transform-origin: 40px;
-  transform: rotate(-90deg);
-  -webkit-transform: rotate(-90deg);
-  -moz-transform: rotate(-90deg);
-  -ms-transform: rotate(-90deg);
+}
+
+.top-row-open {
+  background: darken(@bodyBackground, 3%);
+  padding: 5px 25px 5px 25px;
+}
+
+.top-row-close {
+  outline: 1px solid darken(@bodyBackground, 10%);
+  border-top: 1px solid lighten(@bodyBackground, 10%);
+  padding: 0px;
+  margin: 1px 0px 0px 0px;
+  text-align: center;
+  min-height: 16px !important;
+  line-height: 16px;
+  background: darken(@bodyBackground, 3%);
 }
 
 .row-open i {
@@ -84,14 +117,8 @@
   display: none !important;
 }
 
-.table tbody + tbody{
+.table tbody + tbody {
   border-top: 0px;
-}
-
-.panel-error {
-  opacity: 0.9;
-  position:absolute;
-  z-index: 1000;
 }
 
 .panel-loading {
@@ -101,24 +128,46 @@
   z-index: 800;
 }
 
-.panel span.panelextra {
-  position: absolute;
-  z-index: 800;
-  display: none;
-}
-
-.panel:hover span.panelextra {
+.ui-draggable-dragging {
   display: block;
-  opacity: 0.3;
+  visibility: visible;
+  opacity: 1;
+  z-index: 9999;
 }
 
-.panel span.panelextra:hover {
-  opacity: 1;
+.panel-title {
+  border: 0px;
+  margin-left: -11px;
+}
+
+.panel div.panel-extra div.panel-extra-container {
+  margin-right: -11px;
+}
+
+.panel div.panel-extra {
+  font-size: 0.9em;
+  margin-bottom: 10px;
+}
+
+.panel div.panel-extra .extra {
+  float:right !important;
+  border-bottom: 1px solid lighten(@bodyBackground, 5%);
+}
+
+.dragInProgress {
+  background-color: darken(@bodyBackground,1%);
+  border: 1px solid @tableBorder;
 }
 
 .link {
+  color: @linkColor;
   cursor: pointer;
 }
+
+.link:hover {
+  color: @linkColorHover;
+}
+
 
 .pointer:hover {
   color: @linkColorHover;
@@ -126,10 +175,6 @@
 
 .pointer {
   cursor: pointer;
-}
-
-.link:hover {
-  color: @linkColorHover;
 }
 
 .popover {
@@ -162,16 +207,16 @@
   font-weight: bold;
 }
 
+a {
+  cursor: pointer;
+}
+
 .normal {
   font-weight: normal;
 }
 
 .light {
   font-weight: 200;
-}
-
-.input-append label {
-  font-size: inherit !important;
 }
 
 .input-smaller {
@@ -211,4 +256,193 @@ div.flot-text {
   width:100%;
   color: @textColor;
   padding-left:20px;
+}
+
+.panel-error {
+  color: @textColor;
+  padding: 3px 10px 0px 10px;
+}
+
+/* ===================================================
+ * popover-extra-placements.css v0.1
+ * http://twitter.github.com/bootstrap-popover-extra-placements
+ * ===================================================
+ * Copyright 2012 Daniel Kleehammer
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ========================================================== */
+
+
+/*************************
+ *   Top Positions
+ *************************/
+
+/** Top Left **/
+.popover.topLeft {
+  margin-top: -10px;
+}
+
+.popover.topLeft .arrow {
+  bottom: -10px;
+  left: 25%;
+  margin-left: -10px;
+  border-width: 10px 10px 0;
+  border-top-color: @popoverTitleBackground;
+}
+
+.popover.topLeft .arrow:after {
+  border-width: 11px 11px 0;
+  border-top-color: rgba(0, 0, 0, 0.25);
+  bottom: -1px;
+  left: -11px;
+}
+
+/** Top Right **/
+.popover.topRight {
+  margin-top: -10px;
+}
+
+.popover.topRight .arrow {
+  bottom: -10px;
+  left: 75%;
+  margin-left: -10px;
+  border-width: 10px 10px 0;
+  border-top-color: @popoverTitleBackground;;
+}
+
+.popover.topRight .arrow:after {
+  border-width: 11px 11px 0;
+  border-top-color: rgba(0, 0, 0, 0.25);
+  bottom: -1px;
+  left: -11px;
+}
+
+
+/*************************
+ *   Right Positions
+ *************************/
+
+.popover {
+  &.rightTop .arrow {
+    top: 10%;
+    left: -@popoverArrowOuterWidth;
+    margin-top: -@popoverArrowOuterWidth;
+    border-left-width: 0;
+    border-right-color: #999; // IE8 fallback
+    border-right-color: @popoverArrowOuterColor;
+    &:after {
+      left: 1px;
+      bottom: -@popoverArrowWidth;
+      border-left-width: 0;
+      border-right-color: @popoverArrowColor;
+    }
+  }
+  &.rightBottom .arrow {
+    top: 90%;
+    left: -@popoverArrowOuterWidth;
+    margin-top: -@popoverArrowOuterWidth;
+    border-left-width: 0;
+    border-right-color: #999; // IE8 fallback
+    border-right-color: @popoverArrowOuterColor;
+    &:after {
+      left: 1px;
+      bottom: -@popoverArrowWidth;
+      border-left-width: 0;
+      border-right-color: @popoverArrowColor;
+    }
+  }
+  &.bottomLeft .arrow {
+    left: 10%;
+    margin-left: -@popoverArrowOuterWidth;
+    border-top-width: 0;
+    border-bottom-color: #999; // IE8 fallback
+    border-bottom-color: @popoverArrowOuterColor;
+    top: -@popoverArrowOuterWidth;
+    &:after {
+      top: 1px;
+      margin-left: -@popoverArrowWidth;
+      border-top-width: 0;
+      border-bottom-color: @popoverArrowColor;
+    }
+  }
+  &.bottomRight .arrow {
+    left: 90%;
+    margin-left: -@popoverArrowOuterWidth;
+    border-top-width: 0;
+    border-bottom-color: #999; // IE8 fallback
+    border-bottom-color: @popoverArrowOuterColor;
+    top: -@popoverArrowOuterWidth;
+    &:after {
+      top: 1px;
+      margin-left: -@popoverArrowWidth;
+      border-top-width: 0;
+      border-bottom-color: @popoverArrowColor;
+    }
+  }
+  &.leftTop .arrow {
+    top: 10%;
+    right: -@popoverArrowOuterWidth;
+    margin-top: -@popoverArrowOuterWidth;
+    border-right-width: 0;
+    border-left-color: #999; // IE8 fallback
+    border-left-color: @popoverArrowOuterColor;
+    &:after {
+      right: 1px;
+      border-right-width: 0;
+      border-left-color: @popoverArrowColor;
+      bottom: -@popoverArrowWidth;
+    }
+  }
+  &.leftBottom .arrow {
+    top: 90%;
+    right: -@popoverArrowOuterWidth;
+    margin-top: -@popoverArrowOuterWidth;
+    border-right-width: 0;
+    border-left-color: #999; // IE8 fallback
+    border-left-color: @popoverArrowOuterColor;
+    &:after {
+      right: 1px;
+      border-right-width: 0;
+      border-left-color: @popoverArrowColor;
+      bottom: -@popoverArrowWidth;
+    }
+  }
+  &.topLeft .arrow {
+    left: 10%;
+    margin-left: -@popoverArrowOuterWidth;
+    border-bottom-width: 0;
+    border-top-color: #999; // IE8 fallback
+    border-top-color: @popoverArrowOuterColor;
+    bottom: -@popoverArrowOuterWidth;
+    &:after {
+      bottom: 1px;
+      margin-left: -@popoverArrowWidth;
+      border-bottom-width: 0;
+      border-top-color: @popoverArrowColor;
+    }
+  }
+  &.topRight .arrow {
+    left: 90%;
+    margin-left: -@popoverArrowOuterWidth;
+    border-bottom-width: 0;
+    border-top-color: #999; // IE8 fallback
+    border-top-color: @popoverArrowOuterColor;
+    bottom: -@popoverArrowOuterWidth;
+    &:after {
+      bottom: 1px;
+      margin-left: -@popoverArrowWidth;
+      border-bottom-width: 0;
+      border-top-color: @popoverArrowColor;
+    }
+  }
 }

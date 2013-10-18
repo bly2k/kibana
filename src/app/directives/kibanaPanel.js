@@ -7,60 +7,56 @@ function (angular) {
   angular
     .module('kibana.directives')
     .directive('kibanaPanel', function($compile) {
+      var container = '<div class="panelCont"></div>';
+
       var editorTemplate =
-        '<i class="icon-spinner small icon-spin icon-large panel-loading"' +
-          'ng-show="panelMeta.loading == true && !panel.title"></i>' +
+        '<div class="row-fluid panel-extra"><div class="panel-extra-container">' +
 
-        '<span class="editlink panelextra pointer" style="right:20px;top:0px" ng-show="panel.editable != false">'+
-          '<i ng-show="!$first" class="pointer link icon-chevron-sign-left" ng-click="_.move(row.panels,$index,$index-1)"></i>' +
-          '<i style="margin-left:2px" ng-click="movePanelVertical(row, rowScope().$index, panel, $index, +1); " ng-hide="rowScope().$last" class="pointer icon-arrow-down"></i>' +
-          '<i style="margin-left:2px" ng-click="movePanelVertical(row, rowScope().$index, panel, $index, -1); " ng-hide="rowScope().$first" class="pointer icon-arrow-up"></i>' +
-          '<i style="margin-left:2px" ng-show="!$last" class="pointer link icon-chevron-sign-right" ng-click="_.move(row.panels,$index,$index+1)"></i>' +
-          '&nbsp;&nbsp;|&nbsp;&nbsp;' +
-
-          '<span bs-modal="\'app/partials/paneleditor.html\'">' + 
-          '<span class="small">{{panel.type}}</span> <i class="icon-cog pointer"></i></span>' +
+          '<span class="extra row-button" ng-hide="panel.draggable == false">' +
+            '<span class="row-text pointer" bs-tooltip="\'Drag here to move\'"' +
+            'data-drag=true data-jqyoui-options="{revert: \'invalid\',helper:\'clone\'}"'+
+            ' jqyoui-draggable="'+
+            '{'+
+              'animate:false,'+
+              'mutate:false,'+
+              'index:{{$index}},'+
+              'onStart:\'panelMoveStart\','+
+              'onStop:\'panelMoveStop\''+
+              '}"  ng-model="row.panels">{{panel.type}}</span>'+
           '</span>' +
-        '</span>' +
-        '<h4 ng-show="panel.title">' +
-          '{{panel.title}}' +
-          '<i class="icon-spinner smaller icon-spin icon-large"' +
-            'ng-show="panelMeta.loading == true && panel.title"></i>' +
-        '</h4>';
+          '<span class="extra row-button" ng-show="panel.draggable == false">' +
+            '<span class="row-text">{{panel.type}}</span>'+
+          '</span>' +
+
+          '<span class="extra row-button" ng-show="panel.editable != false">' +
+            '<span confirm-click="row.panels = _.without(row.panels,panel)" '+
+            'confirmation="Are you sure you want to remove this {{panel.type}} panel?" class="pointer">'+
+            '<i class="icon-remove pointer" bs-tooltip="\'Remove\'"></i></span>'+
+          '</span>' +
+
+          '<span class="row-button extra" ng-show="panel.editable != false">' +
+            '<span bs-modal="\'app/partials/paneleditor.html\'" class="pointer">'+
+            '<i class="icon-cog pointer" bs-tooltip="\'Configure\'"></i></span>'+
+          '</span>' +
+
+          '<span ng-repeat="task in panelMeta.modals" class="row-button extra" ng-show="task.show">' +
+            '<span bs-modal="task.partial" class="pointer"><i ' +
+              'bs-tooltip="task.description" ng-class="task.icon" class="pointer"></i></span>'+
+          '</span>' +
+
+          '<span class="row-button extra" ng-show="panelMeta.loading == true">' +
+            '<span>'+
+              '<i class="icon-spinner icon-spin icon-large"></i>' +
+            '</span>'+
+          '</span>' +
+
+          '<span class="row-button row-text panel-title" ng-show="panel.title">' +
+            '{{panel.title}}' +
+          '</span>'+
+
+        '</div></div>';
       return {
         restrict: 'E',
-        controller: function ($scope) {
-          $scope.movePanelVertical = function(row, rowIndex, panel, panelIndex, direction) {
-            //compute current span location
-            var panelPreSpan = 0;
-            for (var p = 0; p < panelIndex; p++) panelPreSpan += row.panels[p].span;
-
-            //compute destination row possible index
-            var destRow = $scope.dashboard.current.rows[rowIndex + direction];
-            var destPanelIndex = -1, destPanelSpan = 0;
-            for (var p = 0; p < destRow.panels.length; p++) {
-              destPanelSpan += destRow.panels[p].span;
-              if (destPanelSpan > panelPreSpan) {
-                destPanelIndex = p;
-                break;
-              }
-            }
-
-            //copy
-            if (destPanelIndex >= 0 && destRow.panels.length > destPanelIndex)
-              destRow.panels.splice(destPanelIndex, 0, panel);
-            else
-              destRow.panels.push(panel);
-
-            //relocate
-            row.panels = _.without(row.panels,panel); 
-          };
-
-          $scope.rowScope = function()
-          {
-            return $scope.$parent.$parent;
-          }
-        },
         link: function($scope, elem, attr) {
           // once we have the template, scan it for controllers and
           // load the module.js if we have any
@@ -68,6 +64,7 @@ function (angular) {
           // compile the module and uncloack. We're done
           function loadModule($module) {
             $module.appendTo(elem);
+            elem.wrap(container);
             /* jshint indent:false */
             $compile(elem.contents())($scope);
             elem.removeClass("ng-cloak");

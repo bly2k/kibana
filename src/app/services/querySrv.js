@@ -39,6 +39,13 @@ function (angular, _, config) {
       "#E0F9D7","#FCEACA","#CFFAFF","#F9E2D2","#FCE2DE","#BADFF4","#F9D9F9","#DEDAF7"  //7
     ];
 
+    // Define the query types and the version of elasticsearch they were first available in
+    this.queryTypes = [
+      {name:'lucene',require:">=0.17.0"},
+      {name:'regex',require:">=0.90.3"},
+      {name:'derive',require:">=2.0.0"}
+    ];
+
 
     // Save a reference to this
     var self = this;
@@ -104,6 +111,8 @@ function (angular, _, config) {
       {
       case 'lucene':
         return ejs.QueryStringQuery(q.query || '*');
+      case 'regex':
+        return ejs.RegexpQuery('_all',q.query);
       default:
         return _.isUndefined(q.query) ? false : ejs.QueryStringQuery(q.query || '*');
       }
@@ -124,23 +133,37 @@ function (angular, _, config) {
         return _.difference(self.ids,_.pluck(_.where(self.list,{pin:true}),'id'));
       case 'selected':
         return _.intersection(self.ids,config.ids);
+      case 'none':
+      case 'index':
+        return [];
       default:
         return self.ids;
       }
     };
 
-    //returns array of [query, filter]
+    this.isMatchAllQuery = function(id) {
+      var q = self.list[id];
+      return (q.query == "*" || q.query == "");
+    }
+
+    //returns { query, filter }
     this.getQueryFilterParts = function (filterSrv, queries, queryString, highlight) {
+      if (_.isUndefined(highlight)) highlight = null;
+
       var facetQuery = ejs.MatchAllQuery();
 
-      if (!_.isUndefined(highlight) && _.isArray(highlight) && highlight.length > 0) 
-        highlight = ["_all"].concat(highlight);
-      else
-        highlight = null;
-
-      // This could probably be changed to a BoolFilter 
       var queryIds = self.idsByMode(queries);
-      if (queryIds != null && queryIds.length > 0) {
+      var hasQueries = queryIds != null && queryIds.length > 0;
+      if (hasQueries && queryIds.length == 1) {
+        if (self.isMatchAllQuery(queryIds[0])) hasQueries = false;
+      }
+
+      if (hasQueries) {
+        if (_.isArray(highlight) && highlight.length > 0) 
+          highlight = ["_all"].concat(highlight);
+        else
+          highlight = null;
+
         facetQuery = ejs.BoolQuery();
         _.each(queryIds, function (id) {
           var q = self.getEjsObj(id);
@@ -157,18 +180,25 @@ function (angular, _, config) {
       if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
         if (_.isString(queryString)) {
           var qs = ejs.QueryStringQuery(queryString);
-          facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+          facetFilter = facetFilter.must(ejs.QueryFilter(qs).cache(true));
         }
         else if (_.isArray(queryString)) {
           _.each(queryString, function (q) {
             if (!_.isUndefined(q) && q != null && q != "") {
               var qs = ejs.QueryStringQuery(q);
-              facetFilter = facetFilter.must(ejs.QueryFilter(qs));
+              facetFilter = facetFilter.must(ejs.QueryFilter(qs).cache(true));
             }
           });
         }
       }
 
+      if (highlight == null) {
+        //testing: move query into filter
+        if (hasQueries) facetFilter = facetFilter.must(ejs.QueryFilter(facetQuery).cache(true));
+        facetQuery = ejs.MatchAllQuery();
+      }
+
+      //ensure we don't have an empty must clause
       if (facetFilter.must().length <= 0)
         facetFilter = facetFilter.must(ejs.MatchAllFilter());
 
@@ -180,6 +210,12 @@ function (angular, _, config) {
     this.getFacetFilter = function (filterSrv, queries, queryString) {
       var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
       var result = ejs.QueryFilter(ejs.FilteredQuery(filterParts.query, filterParts.filter));
+      return result;
+    };
+
+    this.getFacetQuery = function (filterSrv, queries, queryString) {
+      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
+      var result = ejs.FilteredQuery(filterParts.query, filterParts.filter);
       return result;
     };
 

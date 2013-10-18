@@ -13,6 +13,14 @@ function (angular, app, _, $, kbn) {
 
   module.controller('tablestats', function($scope, querySrv, dashboard, filterSrv) {
     $scope.panelMeta = {
+      modals : [
+        {
+          description: "Inspect",
+          icon: "icon-info-sign",
+          partial: "app/partials/inspector.html",
+          show: $scope.panel.spyable
+        }
+      ],
       editorTabs : [
         {title:'Queries', src:'app/partials/querySelect.html'}
       ],
@@ -128,25 +136,30 @@ function (angular, app, _, $, kbn) {
       return $scope.panel.sort;
     }
 
-    $scope.buildSecondaryFacets = function(primary, sort, facetFilter) {
+    $scope.buildSecondaryFacets = function(primary, sort) {
       var request = $scope.ejs.Request().indices(dashboard.indices);
 
       var terms = _.map(primary.facets[sort.chartIndex.toString()].terms, function(term) { return term.term } );
-      request = request.query(
-        $scope.ejs.FilteredQuery(
-          $scope.ejs.MatchAllQuery(),
-          $scope.ejs.TermsFilter($scope.panel.field, terms))
-      );
+
+      var fq = querySrv.getQueryFilterParts(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      fq.filter = fq.filter.must($scope.ejs.TermsFilter($scope.panel.field, terms));
+      
+      request = request.query($scope.ejs.FilteredQuery(fq.query, fq.filter));
 
       for (var c = 0; c < $scope.panel.stackCharts.length; c++) {
         var chart = $scope.panel.stackCharts[c];
-        var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, chart.queryString]);
+        
+        var facetFilter = null;
+        if (!_.isUndefined(chart.queryString) && !_.isNull(chart.queryString) && chart.queryString != "") 
+          facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, chart.queryString]);
+
         if (c != sort.chartIndex) {
           var facet = $scope.ejs.TermStatsFacet(c.toString())
             .keyField($scope.panel.field)
             .size($scope.panel.size)
-            .order("term")
-            .facetFilter(facetFilter);
+            .order("term");
+
+          if (facetFilter != null) facet = facet.facetFilter(facetFilter);
 
           if (chart.valueScript != null && chart.valueScript != "")
             facet = facet.valueScript(chart.valueScript);
@@ -204,13 +217,14 @@ function (angular, app, _, $, kbn) {
       if (sort == null) return;
 
       var primaryChart = $scope.panel.stackCharts[sort.chartIndex];
-      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, primaryChart.queryString]);
+
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, primaryChart.queryString]);
+      request = request.query(fq);
 
       var facet = $scope.ejs.TermStatsFacet(sort.chartIndex.toString())
         .keyField($scope.panel.field)
         .size($scope.panel.size)
-        .order(sort.order)
-        .facetFilter(facetFilter);
+        .order(sort.order);
 
       if (primaryChart.valueScript != null && primaryChart.valueScript != "")
         facet = facet.valueScript(primaryChart.valueScript);
@@ -227,8 +241,7 @@ function (angular, app, _, $, kbn) {
         $scope.results = results;
         request = $scope.buildSecondaryFacets(results, sort);
 
-        // Populate the inspector panel
-        //$scope.populate_modal(request);
+        //$scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
 
         results = request.doSearch();
 
@@ -248,9 +261,10 @@ function (angular, app, _, $, kbn) {
 
               for (var c = 0; c < $scope.panel.stackCharts.length; c++) {
                 var chart = $scope.panel.stackCharts[c];
+
                 var stat = c == sort.chartIndex ? term[chart.statistic] : 
                   $scope.getSecondaryStatistic($scope.secondaryResults, c.toString(), term.term, chart.statistic);
-              
+
                 var formatted = $.number(stat, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
                 if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != null && $scope.panel.formatString != "")
                   formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);

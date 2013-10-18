@@ -33,8 +33,16 @@ function (angular, app, _, kbn, moment) {
   var module = angular.module('kibana.panels.table', []);
   app.useModule(module);
 
-  module.controller('table', function($rootScope, $scope, fields, querySrv, dashboard, filterSrv) {
+  module.controller('table', function($rootScope, $scope, $modal, $q, $compile, fields, querySrv, dashboard, filterSrv) {
     $scope.panelMeta = {
+      modals : [
+        {
+          description: "Inspect",
+          icon: "icon-info-sign",
+          partial: "app/partials/inspector.html",
+          show: $scope.panel.spyable
+        }
+      ],
       editorTabs : [
         {
           title:'Paging',
@@ -70,6 +78,7 @@ function (angular, app, _, kbn, moment) {
       header  : true,
       paging  : true,
       field_list: true,
+      all_fields: false,
       trimFactor: 300,
       normTimes : true,
       spyable : true,
@@ -81,13 +90,14 @@ function (angular, app, _, kbn, moment) {
 
     $scope.init = function () {
       $scope.Math = Math;
-
+      $scope.identity = angular.identity;
       $scope.$on('refresh',function(){$scope.get_data();});
 
       $scope.fields = fields;
       $scope.get_data();
     };
 
+    // Create a percent function for the view
     $scope.percent = kbn.to_percent;
 
     $scope.ensureFieldAlias = function(field) {
@@ -101,6 +111,39 @@ function (angular, app, _, kbn, moment) {
       return fieldAlias != null && fieldAlias.alias != "" ? fieldAlias.alias : field;
     }
 
+    $scope.termsModal = function(field,chart) {
+      $scope.modalField = field;
+      showModal(
+        '{"height":"300px","chart":"'+chart+'","field":"'+field+'"}','terms');
+    };
+
+    $scope.statsModal = function(field) {
+      $scope.modalField = field;
+      showModal(
+        '{"field":"'+field+'"}','statistics');
+    };
+
+    var showModal = function(panel,type) {
+
+      $scope.facetPanel = panel;
+      $scope.facetType = type;
+
+      // create a new modal. Can't reuse one modal unforunately as the directive will not
+      // re-render on show.
+      var panelModal = $modal({
+        template: './app/panels/table/modal.html',
+        persist: true,
+        show: false,
+        scope: $scope,
+        keyboard: false
+      });
+
+      // and show it
+      $q.when(panelModal).then(function(modalEl) {
+        modalEl.modal('show');
+      });
+    };
+
     $scope.toggle_micropanel = function(field,groups) {
       var docs = _.map($scope.data,function(_d){return _d.kibana._source;});
       var topFieldValues = kbn.top_field_values(docs,field,10,groups);
@@ -110,6 +153,7 @@ function (angular, app, _, kbn, moment) {
         values : topFieldValues.counts,
         hasArrays : topFieldValues.hasArrays,
         related : kbn.get_related_fields(docs,field),
+        limit: 10,
         count: _.countBy(docs,function(doc){return _.contains(_.keys(doc),field);})['true']
       };
     };
@@ -166,14 +210,12 @@ function (angular, app, _, kbn, moment) {
       } else {
         query = angular.toJson(value);
       }
-      filterSrv.set({type:'field',field:field,query:query,mandate:(negate ? 'mustNot':'must')});
       $scope.panel.offset = 0;
-      dashboard.refresh();
+      filterSrv.set({type:'field',field:field,query:query,mandate:(negate ? 'mustNot':'must')});
     };
 
     $scope.fieldExists = function(field,mandate) {
       filterSrv.set({type:'exists',field:field,mandate:mandate});
-      dashboard.refresh();
     };
 
     $scope.get_data = function(segment,query_id) {
@@ -242,7 +284,11 @@ function (angular, app, _, kbn, moment) {
 
           // Sort the data
           $scope.data = _.sortBy($scope.data, function(v){
-            return v.sort[0];
+            if(!_.isUndefined(v.sort)) {
+              return v.sort[0];
+            } else {
+              return 0;
+            }
           });
 
           // Reverse if needed
@@ -252,6 +298,9 @@ function (angular, app, _, kbn, moment) {
 
           // Keep only what we need for the set
           $scope.data = $scope.data.slice(0,$scope.panel.size * $scope.panel.pages);
+
+          // Populate current_fields list
+          $scope.current_fields = kbn.get_all_fields($scope.data);
 
         } else {
           return;
@@ -303,10 +352,6 @@ function (angular, app, _, kbn, moment) {
       }
       return obj;
     };
-
-    $scope.foo = function() {
-      return "foo";
-    }
   });
 
   // This also escapes some xml sequences
@@ -395,6 +440,8 @@ function (angular, app, _, kbn, moment) {
       return '';
     };
   });
+
+
 
   module.filter('tableJson', function() {
     var json;

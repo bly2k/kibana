@@ -1,8 +1,4 @@
 <div ng-controller='tablestats' ng-init="init()">
-  <span ng-show="panel.spyable" class='spy panelextra pointer'>
-    <i bs-modal="'app/partials/inspector.html'" class="icon-eye-open"></i>
-  </span>
-
   <table ng-style="panel.style" class="table table-striped table-condensed">  
     <thead>
       <th>{{getTermAlias()}}</th>
@@ -14,13 +10,13 @@
         </span> 
       </th>
     </thead>
-    <tr ng-repeat="term in data">
-      <th><span ng-click="buildSearch(term[0])" class="pointer" bs-tooltip="'Filter by \'' + term[0] + '\''">{{term[0]}}</span></th>
+    <tr ng-repeat="tableTerm in data">
+      <th><span ng-click="buildSearch(tableTerm[0])" class="pointer" bs-tooltip="'Filter by \'' + term[0] + '\''">{{tableTerm[0]}}</span></th>
       <td nowrap="nowrap">
-        <i class='icon-search pointer' ng-click="buildSearch(term[0])" bs-tooltip="'Filter by \'' + term[0] + '\''"></i> 
-        <i class='icon-ban-circle pointer' ng-click="buildSearch(term[0],'mustNot')" bs-tooltip="'Filter except \'' + term[0] + '\''"></i>
+        <i class='icon-search pointer' ng-click="buildSearch(tableTerm[0])" bs-tooltip="'Filter by \'' + tableTerm[0] + '\''"></i> 
+        <i class='icon-ban-circle pointer' ng-click="buildSearch(tableTerm[0],'mustNot')" bs-tooltip="'Filter except \'' + tableTerm[0] + '\''"></i>
       </td>
-      <td ng-repeat="stat in term.slice(1)" style="text-align:right">{{stat}}</td>
+      <td ng-repeat="chart in panel.stackCharts" style="text-align:right">{{tableTerm[$index + 1]}}</td>
     </tr>
   </table>
 </div

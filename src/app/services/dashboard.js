@@ -13,7 +13,8 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
 
   var module = angular.module('kibana.services');
 
-  module.service('dashboard', function($routeParams, $http, $rootScope, $injector,
+  module.service('dashboard', function(
+    $routeParams, $http, $rootScope, $injector, $location, $timeout,
     ejsResource, timer, kbnIndex, alertSrv
   ) {
     // A hash of defaults to use when loading a dashboard
@@ -23,7 +24,21 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
       style: "dark",
       editable: true,
       failover: false,
+      panel_hints: true,
       rows: [],
+      pulldowns: [
+        {
+          type: 'query',
+        },
+        {
+          type: 'filtering'
+        }
+      ],
+      nav: [
+        {
+          type: 'timepicker'
+        }
+      ],
       services: {},
       loader: {
         save_gist: false,
@@ -33,10 +48,10 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
         save_temp: true,
         save_temp_ttl_enable: true,
         save_temp_ttl: '30d',
-        load_gist: true,
+        load_gist: false,
         load_elasticsearch: true,
         load_elasticsearch_size: 20,
-        load_local: true,
+        load_local: false,
         hide: false
       },
       index: {
@@ -44,6 +59,7 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
         pattern: '_all',
         default: 'INDEX_MISSING'
       },
+      refresh: false
     };
 
     // An elasticJS client to use
@@ -56,6 +72,7 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
 
     this.current = _.clone(_dash);
     this.last = {};
+    this.availablePanels = [];
 
     $rootScope.$on('$routeChangeSuccess',function(){
       // Clear the current dashboard to prevent reloading
@@ -108,19 +125,21 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
     this.refresh = function() {
       if(self.current.index.interval !== 'none') {
         if(filterSrv.idsByType('time').length > 0) {
-          var _range = filterSrv.timeRange('min');
+          var _range = filterSrv.timeRange('last');
           kbnIndex.indices(_range.from,_range.to,
             self.current.index.pattern,self.current.index.interval
           ).then(function (p) {
             if(p.length > 0) {
               self.indices = p;
             } else {
-              //TODO: Option to not failover
+              // Option to not failover
               if(self.current.failover) {
                 self.indices = [self.current.index.default];
               } else {
                 // Do not issue refresh if no indices match. This should be removed when panels
                 // properly understand when no indices are present
+                alertSrv.set('No results','There were no results because no indices were found that match your'+
+                  ' selected time span','info',5000);
                 return false;
               }
             }
@@ -142,6 +161,33 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
       }
     };
 
+    var timePickerPanel = function(dashboard) {
+      var result = null;
+      var rows = dashboard.rows;
+      if (_.isUndefined(rows) || !_.isArray(rows)) return null;
+      _.each(rows, function(row) {
+        if (result == null) {
+          var panels = row.panels;
+          if (!_.isUndefined(panels) && _.isArray(panels)) {
+            var find = _.findWhere(panels, { type: "timepicker" });
+            if (!_.isUndefined(find)) result = find;
+          }
+        }
+      });
+      return result;
+    }
+
+    this.refreshTimePickerNavigationSettings = function() {
+      var dashboard = self.current;
+      var tpp = timePickerPanel(dashboard);
+      if (tpp == null) return;
+      if (_.isUndefined(dashboard.nav)) dashboard.nav = [];
+      dashboard.nav = _.reject(dashboard.nav, function(n) {
+        return n.type == "timepicker";
+      });
+      dashboard.nav.push(tpp);
+    }
+
     var dash_defaults = function(dashboard) {
       _.defaults(dashboard,_dash);
       _.defaults(dashboard.index,_dash.index);
@@ -161,7 +207,10 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
         self.indices = [dashboard.index.default];
       }
 
+      // Set the current dashboard
       self.current = _.clone(dashboard);
+
+      self.refreshTimePickerNavigationSettings();
 
       // Ok, now that we've setup the current dashboard, we can inject our services
       querySrv = $injector.get('querySrv');
@@ -171,10 +220,19 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
       querySrv.init();
       filterSrv.init();
 
-      // If there's an index interval set and no existing time filter, send a refresh to set one
-      if(dashboard.index.interval !== 'none' && filterSrv.idsByType('time').length === 0) {
+      // If there's an interval set, the indices have not been calculated yet,
+      // so there is no data. Call refresh to calculate the indices and notify the panels.
+      if(dashboard.index.interval !== 'none') {
         self.refresh();
       }
+
+      if(dashboard.refresh) {
+        self.set_interval(dashboard.refresh);
+      }
+
+      self.availablePanels = _.difference(config.panel_names,
+        //_.pluck(_.union(self.current.nav,self.current.pulldowns),'type'));
+        _.pluck(self.current.pulldowns,'type'));
 
       return true;
     };
@@ -203,6 +261,7 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
     this.set_default = function(dashboard) {
       if (Modernizr.localstorage) {
         window.localStorage['dashboard'] = angular.toJson(dashboard || self.current);
+        $location.path('/dashboard');
         return true;
       } else {
         return false;
@@ -328,6 +387,9 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
       return request.doIndex(
         // Success
         function(result) {
+          if(type === 'dashboard') {
+            $location.path('/dashboard/elasticsearch/'+title);
+          }
           return result;
         },
         // Failure
@@ -405,6 +467,22 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
         return false;
       });
     };
+
+    this.set_interval = function (interval) {
+      self.current.refresh = interval;
+      if(interval) {
+        var _i = kbn.interval_to_ms(interval);
+        timer.cancel(self.refresh_timer);
+        self.refresh_timer = timer.register($timeout(function() {
+          self.set_interval(interval);
+          self.refresh();
+        },_i));
+        self.refresh();
+      } else {
+        timer.cancel(self.refresh_timer);
+      }
+    };
+
 
   });
 

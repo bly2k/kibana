@@ -13,6 +13,14 @@ function (angular, app, _, $, kbn) {
 
   module.controller('stackedstats', function($scope, querySrv, dashboard, filterSrv) {
     $scope.panelMeta = {
+      modals : [
+        {
+          description: "Inspect",
+          icon: "icon-info-sign",
+          partial: "app/partials/inspector.html",
+          show: $scope.panel.spyable
+        }
+      ],
       editorTabs : [
         {title:'Queries', src:'app/partials/querySelect.html'}
       ],
@@ -95,26 +103,22 @@ function (angular, app, _, $, kbn) {
         case "termscount":
           facet = $scope.ejs.TermsFacet(stackId)
             .field(field)
-            .facetFilter(facetFilter)
             .size($scope.panel.termsCountMax);
           break;
 
         case "hits":
           var qs = (queryString != null || queryString != "") ? $scope.ejs.QueryStringQuery(queryString) : $scope.ejs.QueryStringQuery("*");
           facet = $scope.ejs.QueryFacet(stackId)
-            .query(qs)
-            .facetFilter(facetFilter);
+            .query(qs);
           break;
 
         case "count":
           facet = $scope.ejs.QueryFacet(stackId)
-            .query($scope.ejs.QueryStringQuery(field + ":*"))
-            .facetFilter(facetFilter);
+            .query($scope.ejs.QueryStringQuery(field + ":*"));
           break;
 
         default:
-          facet = $scope.ejs.StatisticalFacet(stackId)
-            .facetFilter(facetFilter);
+          facet = $scope.ejs.StatisticalFacet(stackId);
 
           if (valueScript != null && valueScript != "")
             facet = facet.script(valueScript);
@@ -123,6 +127,9 @@ function (angular, app, _, $, kbn) {
 
           break;
       }
+
+      if (facet != null && facetFilter != null) 
+        facet = facet.facetFilter(facetFilter);
 
       return facet;
     }
@@ -193,9 +200,14 @@ function (angular, app, _, $, kbn) {
 
       $scope.panel.queries.ids = [];
 
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      request = request.query(fq);
+
       var stackId = 0;
       _.each($scope.panel.stackCharts, function (item) {
-        var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, [$scope.panel.queries.queryString, item.queryString]);
+        var facetFilter = null;
+        if (!_.isUndefined(item.queryString) && !_.isNull(item.queryString) && item.queryString != "") 
+          facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, item.queryString);
         var facet = $scope.buildFacet(stackId, item.statistic, item.field, item.queryString, item.valueScript, facetFilter);
         if (facet == null) return;
         $scope.panel.queries.ids.push(stackId);

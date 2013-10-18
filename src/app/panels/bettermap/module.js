@@ -15,6 +15,7 @@ define([
   './leaflet/leaflet-src',
   'require',
 
+  'css!./module.css',
   'css!./leaflet/leaflet.css',
   'css!./leaflet/plugins.css'
 ],
@@ -30,6 +31,14 @@ function (angular, app, _, L, localRequire) {
         {
           title: 'Queries',
           src: 'app/partials/querySelect.html'
+        }
+      ],
+      modals : [
+        {
+          description: "Inspect",
+          icon: "icon-info-sign",
+          partial: "app/partials/inspector.html",
+          show: $scope.panel.spyable
         }
       ],
       status  : "Experimental",
@@ -199,7 +208,7 @@ function (angular, app, _, L, localRequire) {
         function render_panel() {
           scope.require(['./leaflet/plugins'], function () {
             scope.panelMeta.loading = false;
-
+            L.Icon.Default.imagePath = 'app/panels/bettermap/leaflet/images';
             if(_.isUndefined(map)) {
               map = L.map(attrs.id, {
                 scrollWheelZoom: true,

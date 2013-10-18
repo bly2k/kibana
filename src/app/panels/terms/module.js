@@ -25,6 +25,14 @@ function (angular, app, _, $, kbn) {
 
   module.controller('terms', function($scope, querySrv, dashboard, filterSrv) {
     $scope.panelMeta = {
+      modals : [
+        {
+          description: "Inspect",
+          icon: "icon-info-sign",
+          partial: "app/partials/inspector.html",
+          show: $scope.panel.spyable
+        }
+      ],
       editorTabs : [
         {title:'Queries', src:'app/partials/querySelect.html'}
       ],
@@ -171,7 +179,8 @@ function (angular, app, _, $, kbn) {
 
       $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
 
-      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      request = request.query(fq);
 
       var mode = $scope.panel.mode;
 
@@ -182,9 +191,10 @@ function (angular, app, _, $, kbn) {
           var termsFacet = $scope.ejs.TermsFacet('terms')
             .fields($scope.termFields())
             .size($scope.panel.size)
-            .order($scope.panel.order)
-            .exclude($scope.panel.exclude)
-            .facetFilter(facetFilter);
+            .order($scope.panel.order);
+
+          if ($scope.panel.exclude != null && _.isArray($scope.panel.exclude) && $scope.panel.exclude.length > 0)
+            termsFacet = termsFacet.exclude($scope.panel.exclude);
 
           if ($scope.panel.include != null && $scope.panel.include != "")
             termsFacet = termsFacet.regex($scope.evaluateIncludeExpression($scope.panel.include));
@@ -205,7 +215,7 @@ function (angular, app, _, $, kbn) {
             .keyField($scope.panel.field)
             .size($scope.panel.size)
             .order($scope.panel.order)
-            .facetFilter(facetFilter);
+            ;
 
           if ($scope.panel.valueScript != null && $scope.panel.valueScript != "")
             tsFacet = tsFacet.valueScript($scope.panel.valueScript);
@@ -285,7 +295,6 @@ function (angular, app, _, $, kbn) {
       } else {
         return;
       }
-      dashboard.refresh();
     };
 
     $scope.set_refresh = function (state) {

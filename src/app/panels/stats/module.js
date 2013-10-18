@@ -13,6 +13,14 @@ function (angular, app, _, $, kbn) {
 
   module.controller('stats', function($scope, querySrv, dashboard, filterSrv) {
     $scope.panelMeta = {
+      modals : [
+        {
+          description: "Inspect",
+          icon: "icon-info-sign",
+          partial: "app/partials/inspector.html",
+          show: $scope.panel.spyable
+        }
+      ],
       editorTabs : [
         {title:'Queries', src:'app/partials/querySelect.html'}
       ],
@@ -86,7 +94,8 @@ function (angular, app, _, $, kbn) {
 
       var request = $scope.ejs.Request().indices(dashboard.indices);
 
-      var facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      request = request.query(fq);
 
       var mode = $scope.panel.statistic;
 
@@ -96,27 +105,22 @@ function (angular, app, _, $, kbn) {
           request = request
             .facet($scope.ejs.QueryFacet('stats')
               .query($scope.ejs.QueryStringQuery($scope.panel.field + ":*"))
-              .facetFilter(facetFilter)).size(0);
+              ).size(0);
           break;
 
         case "termscount":
           request = request
            .facet($scope.ejs.TermsFacet('terms')
             .field($scope.panel.field)
-            .facetFilter(facetFilter)
             .size($scope.panel.termsCountMax)).size(0);
           break;
 
         case "hits":
-          request = request
-            .facet($scope.ejs.QueryFacet('stats')
-              .query($scope.ejs.QueryStringQuery("*"))
-              .facetFilter(facetFilter)).size(0);
+          request = request.searchType("count").size(0);
           break;
 
         default:
-          var facet = $scope.ejs.StatisticalFacet('stats')
-            .facetFilter(facetFilter);
+          var facet = $scope.ejs.StatisticalFacet('stats');
 
           if ($scope.panel.valueScript != null && $scope.panel.valueScript != "")
             facet = facet.script($scope.panel.valueScript);
@@ -147,8 +151,11 @@ function (angular, app, _, $, kbn) {
               break;
 
             case "count":
-            case "hits":
               statistic = results.facets.stats.count;
+              break;
+
+            case "hits":
+              statistic = results.hits.total;
               break;
 
             default:
