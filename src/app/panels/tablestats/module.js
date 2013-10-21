@@ -233,7 +233,8 @@ function (angular, app, _, $, kbn) {
 
       request = request.facet(facet).size(0);
 
-      $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
+      var primaryRequest = request;
+      //$scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
 
       var results = request.doSearch();
 
@@ -241,7 +242,9 @@ function (angular, app, _, $, kbn) {
         $scope.results = results;
         request = $scope.buildSecondaryFacets(results, sort);
 
-        //$scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
+        $scope.inspector = 
+          angular.toJson(JSON.parse(primaryRequest.toString()),true) + "\r\n\r\n---\r\n\r\n" +
+          angular.toJson(JSON.parse(request.toString()),true);
 
         results = request.doSearch();
 

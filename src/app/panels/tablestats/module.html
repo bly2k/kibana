@@ -3,7 +3,7 @@
     <thead>
       <th>{{getTermAlias()}}</th>
       <th></th>
-      <th ng-repeat="chart in panel.stackCharts" style="text-align:right" ng-click="setSort($index)">
+      <th ng-repeat="chart in panel.stackCharts" style="text-align:right" ng-click="setSort($index)" nowrap="nowrap">
         <span class="pointer">
           {{getStatisticAlias($index)}}
           <i ng-show='getSortParams().chartIndex == $index' class="pointer link" ng-class="{'icon-chevron-up': getSortParamsOrder() == 'asc','icon-chevron-down': getSortParamsOrder() == 'desc'}"></i>
@@ -11,7 +11,7 @@
       </th>
     </thead>
     <tr ng-repeat="tableTerm in data">
-      <th><span ng-click="buildSearch(tableTerm[0])" class="pointer" bs-tooltip="'Filter by \'' + term[0] + '\''">{{tableTerm[0]}}</span></th>
+      <th><span ng-click="buildSearch(tableTerm[0])" class="pointer" bs-tooltip="'Filter by \'' + tableTerm[0] + '\''">{{tableTerm[0]}}</span></th>
       <td nowrap="nowrap">
         <i class='icon-search pointer' ng-click="buildSearch(tableTerm[0])" bs-tooltip="'Filter by \'' + tableTerm[0] + '\''"></i> 
         <i class='icon-ban-circle pointer' ng-click="buildSearch(tableTerm[0],'mustNot')" bs-tooltip="'Filter except \'' + tableTerm[0] + '\''"></i>
