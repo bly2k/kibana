@@ -231,8 +231,10 @@ function (angular, $, kbn, _, config, moment, Modernizr) {
       }
 
       self.availablePanels = _.difference(config.panel_names,
-        //_.pluck(_.union(self.current.nav,self.current.pulldowns),'type'));
-        _.pluck(self.current.pulldowns,'type'));
+        _.pluck(_.union(self.current.nav,self.current.pulldowns),'type'));
+
+      //enable all. code above seems buggy - should check if the pulldown is enabled or not!
+      self.availablePanels = config.panel_names;
 
       return true;
     };
