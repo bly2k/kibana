@@ -6,7 +6,7 @@ http://hibalo.com/blog/post/2013/08/11/Visual-Analytics-with-Elasticsearch-and-K
 
 General:
 
-- Panels can be moved up/down/left right on the dashboard
+- Performance improvements for histogram, terms, etc. panel queries
 - Support for additional query options: None, Index
 - Each panel can have its own independent querystring filter (no need to predefine and/or pin any queries up-front)
 
