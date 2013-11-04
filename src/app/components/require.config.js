@@ -40,7 +40,8 @@ require.config({
     modernizr:                '../vendor/modernizr-2.6.1',
     elasticjs:                '../vendor/elasticjs/elastic-angular-client',
 
-    'jquery.number':          '../vendor/jquery/jquery.number.min'
+    'jquery.number':          '../vendor/jquery/jquery.number.min',
+    d3:                       'http://d3js.org/d3.v3.min'
   },
   shim: {
     underscore: {
@@ -88,6 +89,11 @@ require.config({
     timepicker:             ['jquery', 'bootstrap'],
     datepicker:             ['jquery', 'bootstrap'],
 
-    elasticjs:              ['angular', '../vendor/elasticjs/elastic']
+    elasticjs:              ['angular', '../vendor/elasticjs/elastic'],
+
+    d3: {
+      deps: ['jquery'],
+      exports: 'd3'
+    }
   }
 });

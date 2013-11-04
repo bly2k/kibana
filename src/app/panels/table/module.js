@@ -235,7 +235,7 @@ function (angular, app, _, kbn, moment) {
 
       var request = $scope.ejs.Request().indices(dashboard.indices[_segment]);
 
-      var q = querySrv.getPanelQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString, $scope.panel.highlight);
+      var q = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString, $scope.panel.highlight);
 
       request = request.query(q)
         .highlight(

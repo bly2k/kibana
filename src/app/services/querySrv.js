@@ -147,16 +147,18 @@ function (angular, _, config) {
     }
 
     //returns { query, filter }
-    this.getQueryFilterParts = function (filterSrv, queries, queryString, highlight) {
+    this.getQueryFilterParts = function (filterSrv, queries, queryString, highlight, stackedQueries) {
       if (_.isUndefined(highlight)) highlight = null;
+      if (_.isUndefined(stackedQueries)) stackedQueries = null;
 
       var facetQuery = ejs.MatchAllQuery();
 
       var queryIds = self.idsByMode(queries);
-      var hasQueries = queryIds != null && queryIds.length > 0;
-      if (hasQueries && queryIds.length == 1) {
-        if (self.isMatchAllQuery(queryIds[0])) hasQueries = false;
-      }
+      if (queryIds != null && queryIds.length == 1) 
+        if (self.isMatchAllQuery(queryIds[0])) 
+          queryIds = null;
+
+      var hasQueries = (queryIds != null && queryIds.length > 0) || (_.isArray(stackedQueries) && stackedQueries.length > 0);
 
       if (hasQueries) {
         if (_.isArray(highlight) && highlight.length > 0) 
@@ -165,11 +167,22 @@ function (angular, _, config) {
           highlight = null;
 
         facetQuery = ejs.BoolQuery();
-        _.each(queryIds, function (id) {
-          var q = self.getEjsObj(id);
-          if (_.isObject(q) && highlight != null) q = q.fields(highlight);
-          facetQuery = facetQuery.should(q);
-        });
+
+        if (queryIds != null && queryIds.length > 0) {
+          _.each(queryIds, function (id) {
+            var q = self.getEjsObj(id);
+            if (_.isObject(q) && highlight != null) q = q.fields(highlight);
+            facetQuery = facetQuery.should(q);
+          });
+        }
+
+        if (_.isArray(stackedQueries)) {
+          _.each(stackedQueries, function (query) {
+            var q = ejs.QueryStringQuery(query);
+            if (highlight != null) q = q.fields(highlight);
+            facetQuery = facetQuery.should(q);
+          });
+        }
       }
 
       var facetFilter = ejs.BoolFilter();
@@ -213,14 +226,8 @@ function (angular, _, config) {
       return result;
     };
 
-    this.getFacetQuery = function (filterSrv, queries, queryString) {
-      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
-      var result = ejs.FilteredQuery(filterParts.query, filterParts.filter);
-      return result;
-    };
-
-    this.getPanelQuery = function (filterSrv, queries, queryString, highlight) {
-      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString, highlight);
+    this.getFacetQuery = function (filterSrv, queries, queryString, highlight, stackedQueries) {
+      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString, highlight, stackedQueries);
       var result = ejs.FilteredQuery(filterParts.query, filterParts.filter);
       return result;
     };

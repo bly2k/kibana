@@ -278,7 +278,17 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       $scope.panelMeta.loading = true;
       var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
 
-      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      var stackedQueries = [];
+      if ($scope.panel.queryString != null && $scope.panel.queryString != "") 
+        stackedQueries.push($scope.panel.queryString);
+      if ($scope.hasStackCharts()) {
+        _.each($scope.panel.stackCharts, function (item) {
+          var qs = _.isUndefined(item.queryString) ? null : item.queryString;
+          if (qs != null && qs != "") stackedQueries.push(qs);
+        });
+      }
+
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString, null, stackedQueries);
       request = request.query(fq);
 
       if (!$scope.hasStackCharts() && $scope.hasQueries()) {

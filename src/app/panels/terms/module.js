@@ -15,9 +15,10 @@ define([
   'app',
   'underscore',
   'jquery',
-  'kbn'
+  'kbn',
+  'd3'
 ],
-function (angular, app, _, $, kbn) {
+function (angular, app, _, $, kbn, d3) {
   'use strict';
 
   var module = angular.module('kibana.panels.terms', []);
@@ -101,10 +102,19 @@ function (angular, app, _, $, kbn) {
       if ($scope.panel.filterTerm != null && $scope.panel.filterTerm != "") {
         var filterField = $scope.getFilterField();
         var termIsScript = $scope.panel.termScript != null && $scope.panel.termScript != "";
-        if (termIsScript)
-          $scope.panel.filterId = filterSrv.set({type: 'field', field: filterField, query: $scope.panel.filterTerm.toString(), mandate: 'must'});
-        else
-          $scope.panel.filterId = filterSrv.set({type: 'terms', field: filterField, value: $scope.panel.filterTerm, mandate: 'must'});
+
+        if (!_.isArray(filterField)) {
+          if (termIsScript)
+            $scope.panel.filterId = filterSrv.set({type: 'field', field: filterField, query: $scope.panel.filterTerm.toString(), mandate: 'must'});
+          else
+            $scope.panel.filterId = filterSrv.set({type: 'terms', field: filterField, value: $scope.panel.filterTerm, mandate: 'must'});
+        }
+        else {
+          if (termIsScript)
+            $scope.panel.filterId = filterSrv.set({type: 'querystring', query: $scope.buildTermsQuery(filterField, $scope.panel.filterTerm), mandate: 'must'});
+          else
+            $scope.panel.filterId = filterSrv.set({type:'querystring', query: $scope.buildTermsQuery(filterField, $scope.panel.filterTerm), mandate: 'must'});
+        }
       }
       dashboard.refresh();
     }
@@ -334,7 +344,6 @@ function (angular, app, _, $, kbn) {
     return {
       restrict: 'A',
       link: function(scope, elem) {
-
         // Receive render events
         scope.$on('render',function(){
           render_panel();
@@ -457,6 +466,262 @@ function (angular, app, _, $, kbn) {
             $tooltip.remove();
           }
         });
+      }
+    };
+  });
+
+  module.directive('bubbles', function(querySrv) {
+    return {
+      restrict: 'A',
+      link: function(scope, elem) {
+        scope.$on('render',function(){
+          render_panel();
+        });
+
+        angular.element(window).bind('resize', function(){
+          render_panel();
+        });
+
+        function getData() {
+          var result = _.clone(scope.data);
+          result = scope.panel.missing ? result : _.without(result,_.findWhere(result,{meta:'missing'}));
+          result = scope.panel.other ? result : _.without(result,_.findWhere(result,{meta:'other'}));
+          return result;
+        }
+
+        function render_panel() {
+          elem.css({height:scope.panel.height||scope.row.height});
+          var chartData = getData();
+          drawBubbles(elem[0], chartData, elem.width(), elem.height()); 
+          if(!scope.$$phase) scope.$apply();
+        }
+
+        function drawBubbles(selector, data, width, height) {
+          var plot = Bubbles(width, height);
+          d3.select(selector)
+            .datum(data)
+            .call(plot)
+        }
+
+        //source: http://vallandingham.me/bubble_cloud/
+        function Bubbles(width, height) {
+          var width = width;
+          var height = height;
+          var data = [];
+          var node = null;
+          var label = null;
+          var margin = {top: 5, right: 0, bottom: 0, left: 0};
+          var maxRadius = 50;
+          var minRadius = 7;
+          var rScale = d3.scale.sqrt().range([minRadius,maxRadius]);
+
+          var collisionPadding = 4;
+          var minCollisionRadius = 12;
+
+          var jitter = 0.5;
+
+          var idValue = function (d) { return d.label; };
+          var textValue = function (d) { return d.label; };
+          var rValue = function(d) { return parseFloat(d.data[0][1]); };
+
+          var gravity = function (alpha) {
+            var cx = width / 2;
+            var cy = height / 2;
+            var ax = alpha / 8;
+            var ay = alpha;
+
+            return function (d) {
+              d.x += (cx - d.x) * ax;
+              d.y += (cy - d.y) * ay;
+            };
+          };
+
+          var collide = function (jitter) {
+            return function (d) {
+              data.forEach (function (d2) {
+                if (d != d2) {
+                  var x = d.x - d2.x;
+                  var y = d.y - d2.y;
+                  var distance = Math.sqrt(x * x + y * y);
+                  var minDistance = d.forceR + d2.forceR + collisionPadding;
+
+                  if (distance < minDistance) {
+                    distance = (distance - minDistance) / distance * jitter;
+                    var moveX = x * distance;
+                    var moveY = y * distance;
+                    d.x -= moveX;
+                    d.y -= moveY;
+                    d2.x += moveX;
+                    d2.y += moveY;
+                  }
+                }
+              });
+            };
+          };
+
+          var tick = function (e) {
+            var dampenedAlpha = e.alpha * 0.1;
+    
+            node
+              .each(gravity(dampenedAlpha))
+              .each(collide(jitter))
+              .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
+
+            var offset = elem.position();
+
+            label
+              .style("left", function (d) { return (offset.left + (margin.left + d.x) - d.dx / 2) + "px"; })
+              .style("top", function (d) { return (offset.top + (margin.top + d.y) - d.dy / 2) + "px"; } );
+          }
+
+          var force = d3.layout.force()
+            .gravity(0)
+            .charge(0)
+            .size([width, height])
+            .on("tick", tick)
+
+          var transformData = function(rawData) {
+            rawData.forEach(function(d) {
+              rawData.sort(function() { return 0.5 - Math.random(); });
+            });
+            return rawData;
+          }
+
+          var clear = function () { window.location.replace("#"); };
+
+          var update = function() {
+            data.forEach (function (d,i) {
+              d.forceR = Math.max(minCollisionRadius, rScale(rValue(d))); 
+            });
+
+            force.nodes(data).start();
+
+            updateNodes();
+            updateLabels();
+          }
+
+          var updateLabels = function () {
+            label = label.selectAll(".bubble-label").data(data, function (d) { return idValue(d); });
+
+            label.exit().remove();
+
+            var labelEnter = label.enter().append("a")
+              .attr("class", "bubble-label")
+              .attr("href", function (d) { return "#" + encodeURIComponent(idValue(d)); })
+              .call(force.drag)
+              .call(connectEvents);
+
+            labelEnter.append("div")
+              .attr("class", "bubble-label-name")
+              .text(function (d) { return textValue(d); });
+
+            labelEnter.append("div")
+              .attr("class", "bubble-label-value")
+              .text(function (d) { var value = rValue(d); return value >= 5 ? value : ""; });
+
+            label
+              .style("font-size", function (d) { return Math.max(8, rScale(rValue(d) / 8)) + "px"; })
+              .style("width", function (d) { return 2.5 * rScale(rValue(d)) + "px"; });
+
+            label.append("span")
+              .text(function (d) { return textValue(d); })
+              .each(function (d) { d.dx = Math.max(2.5 * rScale(rValue(d)), this.getBoundingClientRect().width); })
+              .remove();
+
+            label
+              .style("width", function (d) { return d.dx + "px"; });
+  
+            label.each(function (d) { d.dy = this.getBoundingClientRect().height; });
+          }
+
+          var updateNodes = function () {
+            node = node.selectAll(".bubble-node").data(data, function(d) { return idValue(d); });
+
+            node.exit().remove();
+
+            node.enter()
+              .append("a")
+              .attr("class", "bubble-node")
+              .attr("xlink:href", function (d) { return "#" + encodeURIComponent(idValue(d)); })
+              .call(force.drag)
+              .call(connectEvents)
+              .append("circle")
+              .attr("r", function (d) { return rScale(rValue(d)); })
+              .attr("fill", function(d, i) { return querySrv.colorAt(i); })
+              .attr("stroke", function(d, i) { return querySrv.colorAt(i); })
+              .attr("stroke-width", 1);
+          }
+
+          var connectEvents = function (d) {
+            d.on("click", click);
+            d.on("mouseover", mouseover);
+            d.on("mouseout", mouseout);
+          }
+
+          var click = function (d) {
+            scope.build_search(d);
+            d3.event.preventDefault();
+          }
+
+          var mouseover = function (d) {
+            node.classed("bubble-hover", function (p) { return p == d; });
+          }
+
+          var mouseout = function (d) {
+            node.classed("bubble-hover", false);
+          }
+
+          var reset = function (data) {
+            var self = elem[0];
+            d3.select(self).selectAll("svg").remove();
+            d3.select(self).selectAll("#bubble-labels").remove();
+            data.forEach (function (d) {
+              delete d.x;
+              delete d.dx;
+              delete d.y;
+              delete d.dy;
+              delete d.forceR;
+              delete d.index;
+              delete d.weight;
+              delete d.px;
+              delete d.py;
+            });
+          }
+
+          function chart(selection) {
+            selection.each(function(rawData) {
+              data = transformData(rawData)
+
+              reset(data);
+
+              var maxDomainValue = d3.max(data, function(d) { return rValue(d); });
+              rScale.domain([0, maxDomainValue]);
+
+              var svg = d3.select(this).selectAll("svg").data([data]);
+              var svgEnter = svg.enter().append("svg");
+              svg.attr("width", width + margin.left + margin.right );
+              svg.attr("height", height + margin.top + margin.bottom );
+      
+              node = svgEnter.append("g").attr("id", "bubble-nodes")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+              node.append("rect")
+                .attr("id", "bubble-background")
+                .attr("width", width)
+                .attr("height", height)
+                .on("click", clear);
+
+              label = d3.select(this).selectAll("#bubble-labels").data([data])
+                .enter()
+                .append("div")
+                .attr("id", "bubble-labels");
+
+              update();
+            });
+          }
+
+          return chart;
+        }
 
       }
     };
