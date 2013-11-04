@@ -617,7 +617,11 @@ function (angular, app, _, $, kbn, d3) {
 
             labelEnter.append("div")
               .attr("class", "bubble-label-value")
-              .text(function (d) { var value = rValue(d); return value >= 5 ? value : ""; });
+              .text(function (d) { 
+                var value = rValue(d); 
+                var formatted = scope.formatMetricValue(value);
+                return value >= 5 ? formatted : ""; 
+              });
 
             label
               .style("font-size", function (d) { return Math.max(8, rScale(rValue(d) / 8)) + "px"; })
