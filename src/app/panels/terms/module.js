@@ -312,11 +312,8 @@ function (angular, app, _, $, kbn, d3) {
     };
 
     $scope.close_edit = function() {
-      if($scope.refresh) {
-        $scope.get_data();
-      }
-      $scope.refresh =  false;
-      $scope.$emit('render');
+      if ($scope.refresh) $scope.get_data();
+      $scope.refresh = false;
     };
 
     $scope.showMeta = function(term) {
@@ -608,7 +605,7 @@ function (angular, app, _, $, kbn, d3) {
             var labelEnter = label.enter().append("a")
               .attr("class", "bubble-label")
               .attr("href", function (d) { return "#" + encodeURIComponent(idValue(d)); })
-              .call(force.drag)
+              //.call(force.drag)
               .call(connectEvents);
 
             labelEnter.append("div")
@@ -647,12 +644,12 @@ function (angular, app, _, $, kbn, d3) {
               .append("a")
               .attr("class", "bubble-node")
               .attr("xlink:href", function (d) { return "#" + encodeURIComponent(idValue(d)); })
-              .call(force.drag)
+              //.call(force.drag)
               .call(connectEvents)
               .append("circle")
               .attr("r", function (d) { return rScale(rValue(d)); })
               .attr("fill", function(d, i) { return querySrv.colorAt(i); })
-              .attr("stroke", function(d, i) { return querySrv.colorAt(i); })
+              .attr("stroke", function(d, i) { return d3.rgb(querySrv.colorAt(i)).darker(); })
               .attr("stroke-width", 1);
           }
 
@@ -712,8 +709,7 @@ function (angular, app, _, $, kbn, d3) {
               node.append("rect")
                 .attr("id", "bubble-background")
                 .attr("width", width)
-                .attr("height", height)
-                .on("click", clear);
+                .attr("height", height);
 
               label = d3.select(this).selectAll("#bubble-labels").data([data])
                 .enter()
