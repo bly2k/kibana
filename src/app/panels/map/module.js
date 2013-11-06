@@ -58,7 +58,15 @@ function (angular, app, _, $) {
       size    : 100,
       exclude : [],
       spyable : true,
-      index_limit : 0
+      index_limit : 0,
+      order   : 'count',
+      mode    : "count",
+      valueField: "",
+      valueScript: "",
+      decimals: 0,
+      decimalSeparator: ".",
+      commaSeparator: ",",
+      formatString: "{0}"
     };
     _.defaults($scope.panel,_d);
 
@@ -67,50 +75,86 @@ function (angular, app, _, $) {
       $scope.get_data();
     };
 
+    $scope.set_refresh = function (state) {
+      $scope.refresh = state;
+    };
+
+    $scope.close_edit = function() {
+      if ($scope.refresh) $scope.get_data();
+      $scope.refresh = false;
+    };
+
     $scope.get_data = function() {
-
       // Make sure we have everything for the request to complete
-      if(dashboard.indices.length === 0) {
-        return;
-      }
-      $scope.panelMeta.loading = true;
+      if(dashboard.indices.length === 0) return;
 
-
-      var request;
-      request = $scope.ejs.Request().indices(dashboard.indices);
+      var request = $scope.ejs.Request().indices(dashboard.indices);
 
       $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
-      // This could probably be changed to a BoolFilter
-      var boolQuery = $scope.ejs.BoolQuery();
-      _.each($scope.panel.queries.ids,function(id) {
-        boolQuery = boolQuery.should(querySrv.getEjsObj(id));
-      });
 
-      // Then the insert into facet and make the request
-      request = request
-        .facet($scope.ejs.TermsFacet('map')
-          .field($scope.panel.field)
-          .size($scope.panel.size)
-          .exclude($scope.panel.exclude)
-          .facetFilter($scope.ejs.QueryFilter(
-            $scope.ejs.FilteredQuery(
-              boolQuery,
-              filterSrv.getBoolFilter(filterSrv.ids)
-              )))).size(0);
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      request = request.query(fq);
+
+      var mode = $scope.panel.mode;
+
+      switch (mode)
+      {
+        case "count":
+          // Terms mode
+          var termsFacet = $scope.ejs.TermsFacet('map')
+            .field($scope.panel.field)
+            .size($scope.panel.size)
+            .order($scope.panel.order);
+
+          if ($scope.panel.exclude != null && _.isArray($scope.panel.exclude) && $scope.panel.exclude.length > 0)
+            termsFacet = termsFacet.exclude($scope.panel.exclude);
+
+          request = request.facet(termsFacet).size(0);
+          break;
+
+        default:
+          if ($scope.panel.valueField == "") {
+            $scope.panel.error = "Value field must be specified.";
+            return;
+          }
+
+          var tsFacet = $scope.ejs.TermStatsFacet('map')
+            .keyField($scope.panel.field)
+            .size($scope.panel.size)
+            .order($scope.panel.order)
+            ;
+
+          if ($scope.panel.valueScript != null && $scope.panel.valueScript != "")
+            tsFacet = tsFacet.valueScript($scope.panel.valueScript);
+          else
+            tsFacet = tsFacet.valueField($scope.panel.valueField);
+      
+          request = request.facet(tsFacet).size(0);
+          break;
+      }
 
       $scope.populate_modal(request);
+
+      $scope.panelMeta.loading = true;
 
       var results = request.doSearch();
 
       // Populate scope when we have results
       results.then(function(results) {
-        $scope.panelMeta.loading = false;
-        $scope.hits = results.hits.total;
-        $scope.data = {};
-        _.each(results.facets.map.terms, function(v) {
-          $scope.data[v.term.toUpperCase()] = v.count;
+        require(['jquery.number'], function(){
+          $scope.panelMeta.loading = false;
+          $scope.hits = results.hits.total;
+          $scope.data = {};
+          
+          var valueField = mode;
+          _.each(results.facets.map.terms, function(v) {
+            var decimals = !_.isUndefined($scope.panel.decimals) ? $scope.panel.decimals : 0;
+            var value = mode == "count" ? v[valueField] : parseFloat($.number(v[valueField], decimals, ".", ""));
+            $scope.data[v.term.toUpperCase()] = value;
+          });
+
+          $scope.$emit('render');
         });
-        $scope.$emit('render');
       });
     };
 
@@ -123,6 +167,12 @@ function (angular, app, _, $) {
       filterSrv.set({type:'querystring',mandate:'must',query:field+":"+value});
     };
 
+    $scope.formatMetricValue = function(metric) {
+      var formatted = $.number(metric, $scope.panel.decimals, $scope.panel.decimalSeparator, $scope.panel.commaSeparator);
+      if (!_.isUndefined($scope.panel.formatString) && $scope.panel.formatString != null && $scope.panel.formatString != "")
+        formatted = $scope.panel.formatString.replace(/\{0\}/g, formatted);
+      return formatted;
+    }
   });
 
 
@@ -161,8 +211,9 @@ function (angular, app, _, $) {
               },
               onRegionLabelShow: function(event, label, code){
                 elem.children('.map-legend').show();
-                var count = _.isUndefined(scope.data[code]) ? 0 : scope.data[code];
-                elem.children('.map-legend').text(label.text() + ": " + count);
+                var value = _.isUndefined(scope.data[code]) ? 0 : scope.data[code];
+                var formatted = scope.formatMetricValue(value);
+                elem.children('.map-legend').text(label.text() + ": " + formatted);
               },
               onRegionOut: function() {
                 $('.map-legend').hide();
@@ -177,6 +228,8 @@ function (angular, app, _, $) {
             elem.prepend('<span class="map-legend"></span>');
             $('.map-legend').hide();
           });
+
+          if(!scope.$$phase) scope.$apply();
         }
       }
     };
