@@ -562,6 +562,10 @@ function (angular, app, _, $, kbn, d3) {
             node
               .each(gravity(dampenedAlpha))
               .each(collide(jitter))
+              .each(function (d) {
+                var circle = d3.select(this).select(".bubble-node-circle");
+                if (circle.attr("r") == "0") circle.attr("r", function (d) { return rScale(rValue(d)); });
+              })
               .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
 
             var offset = elem.position();
@@ -605,7 +609,6 @@ function (angular, app, _, $, kbn, d3) {
             var labelEnter = label.enter().append("a")
               .attr("class", "bubble-label")
               .attr("href", function (d) { return "#" + encodeURIComponent(idValue(d)); })
-              //.call(force.drag)
               .call(connectEvents);
 
             labelEnter.append("div")
@@ -644,10 +647,10 @@ function (angular, app, _, $, kbn, d3) {
               .append("a")
               .attr("class", "bubble-node")
               .attr("xlink:href", function (d) { return "#" + encodeURIComponent(idValue(d)); })
-              //.call(force.drag)
               .call(connectEvents)
               .append("circle")
-              .attr("r", function (d) { return rScale(rValue(d)); })
+              .attr("class", "bubble-node-circle")
+              .attr("r", 0)
               .attr("fill", function(d, i) { return querySrv.colorAt(i); })
               .attr("stroke", function(d, i) { return d3.rgb(querySrv.colorAt(i)).darker(); })
               .attr("stroke-width", 1);

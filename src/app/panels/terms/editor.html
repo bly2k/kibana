@@ -78,33 +78,33 @@
   <div class="row-fluid">
     <div class="span2"> 
       <label class="small">Style</label> 
-      <select class="input-small" ng-model="panel.chart" ng-options="f for f in ['bar','pie','table','dropdown','bubbles']"></select></span>
+      <select class="input-small" ng-model="panel.chart" ng-options="f for f in ['bar','pie','table','dropdown','bubbles']" ng-change="set_refresh(true)"></select></span>
     </div>
     <div class="span2" ng-show="(panel.chart == 'table' || panel.chart == 'dropdown')">
       <label class="small">Font Size</label> 
-      <select class="input-mini" ng-model="panel.style['font-size']" ng-options="f for f in ['7pt','8pt','9pt','10pt','12pt','14pt','16pt','18pt','20pt','24pt','28pt','32pt','36pt','42pt','48pt','52pt','60pt','72pt']"></select></span>
+      <select class="input-mini" ng-model="panel.style['font-size']" ng-options="f for f in ['7pt','8pt','9pt','10pt','12pt','14pt','16pt','18pt','20pt','24pt','28pt','32pt','36pt','42pt','48pt','52pt','60pt','72pt']" ng-change="set_refresh(true)"></select></span>
     </div>
     <div class="span2" ng-show="panel.chart == 'bar' || panel.chart == 'pie'">
       <label class="small">Legend</label>
-      <select class="input-small" ng-model="panel.counter_pos" ng-options="f for f in ['above','below','none']"></select></span>
+      <select class="input-small" ng-model="panel.counter_pos" ng-options="f for f in ['above','below','none']" ng-change="set_refresh(true)"></select></span>
     </div>
     <div class="span3" ng-show="(panel.chart == 'bar' || panel.chart == 'pie') && panel.counter_pos != 'none'">
       <label class="small" >Legend Format</label> 
-      <select class="input-small" ng-model="panel.arrangement" ng-options="f for f in ['horizontal','vertical']"></select></span>
+      <select class="input-small" ng-model="panel.arrangement" ng-options="f for f in ['horizontal','vertical']" ng-change="set_refresh(true)"></select></span>
     </div>
     <div class="span1" ng-show="panel.mode=='count'">
-      <label class="small">Missing</label><input type="checkbox" ng-model="panel.missing" ng-checked="panel.missing">
+      <label class="small">Missing</label><input type="checkbox" ng-model="panel.missing" ng-checked="panel.missing" ng-change="set_refresh(true)">
     </div>
     <div class="span1" ng-show="panel.mode=='count'">
-      <label class="small">Other</label><input type="checkbox" ng-model="panel.other" ng-checked="panel.other">
+      <label class="small">Other</label><input type="checkbox" ng-model="panel.other" ng-checked="panel.other" ng-change="set_refresh(true)">
     </div>
     <div class="span1" ng-show="panel.chart == 'pie'">
-      <label class="small">Donut</label><input type="checkbox" ng-model="panel.donut" ng-checked="panel.donut">
+      <label class="small">Donut</label><input type="checkbox" ng-model="panel.donut" ng-checked="panel.donut" ng-change="set_refresh(true)">
     </div>
     <div class="span1" ng-show="panel.chart == 'pie'">
-      <label class="small">Tilt</label><input type="checkbox" ng-model="panel.tilt" ng-checked="panel.tilt">
+      <label class="small">Tilt</label><input type="checkbox" ng-model="panel.tilt" ng-checked="panel.tilt" ng-change="set_refresh(true)">
     </div>
     <div class="span1" ng-show="panel.chart == 'pie'">
-      <label class="small">Labels</label><input type="checkbox" ng-model="panel.labels" ng-checked="panel.labels">
+      <label class="small">Labels</label><input type="checkbox" ng-model="panel.labels" ng-checked="panel.labels" ng-change="set_refresh(true)">
     </div>
   </div>
