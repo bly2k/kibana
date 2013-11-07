@@ -510,6 +510,7 @@ function (angular, app, _, $, kbn, d3) {
           var margin = {top: 5, right: 0, bottom: 0, left: 0};
           var maxRadius = 50;
           var minRadius = 7;
+          var maxTextLength = 25;
           var rScale = d3.scale.sqrt().range([minRadius,maxRadius]);
 
           var collisionPadding = 4;
@@ -518,7 +519,7 @@ function (angular, app, _, $, kbn, d3) {
           var jitter = 0.5;
 
           var idValue = function (d) { return d.label; };
-          var textValue = function (d) { return d.label; };
+          var textValue = function (d) { return d.label.length <= maxTextLength ? d.label : d.label.substring(0, maxTextLength) + "..."; };
           var rValue = function(d) { return parseFloat(d.data[0][1]); };
 
           var gravity = function (alpha) {
