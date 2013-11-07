@@ -571,6 +571,10 @@ function (angular, app, _, $, kbn, d3) {
             var offset = elem.position();
 
             label
+              .each(function (d) {
+                var l = d3.select(this);
+                if (l.style("display") == "none") l.style("display", null);
+              })
               .style("left", function (d) { return (offset.left + (margin.left + d.x) - d.dx / 2) + "px"; })
               .style("top", function (d) { return (offset.top + (margin.top + d.y) - d.dy / 2) + "px"; } );
           }
@@ -636,6 +640,8 @@ function (angular, app, _, $, kbn, d3) {
               .style("width", function (d) { return d.dx + "px"; });
   
             label.each(function (d) { d.dy = this.getBoundingClientRect().height; });
+
+            label.style("display", "none");
           }
 
           var updateNodes = function () {
