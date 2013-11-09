@@ -272,7 +272,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         return;
       }
 
-      var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
+      var request = $scope.ejs.Request().indices(dashboard.indices);
       var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.getQueryStringFilter());
       request = request.query(fq);
 
@@ -351,7 +351,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
           if (!querySrv.isMatchAllQuery(id) || (!_.isUndefined($scope.panel.queryString) && !_.isNull($scope.panel.queryString) && $scope.panel.queryString != "")) 
             facetFilter = querySrv.getFacetFilterByQueryId(filterSrv, id, $scope.panel.queryString);
           var facet = $scope.buildFacet(id, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.valueScript, _interval, facetFilter);
-          if (facet == null) return;
+          if (facet == null) return null;
           request = request.facet(facet).size(0);
         });
       }
@@ -367,7 +367,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
           $scope.panel.queries.ids = [0];
           var facet = $scope.buildFacet(0, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.valueScript, _interval, facetFilter);
-          if (facet == null) return;
+          if (facet == null) return null;
           request = request.facet(facet).size(0);
         }
 
@@ -383,7 +383,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
           var filter = (qs == null || qs == "") ? null : querySrv.getFacetFilter(filterSrv, $scope.panel.queries, qs);
           var facet = $scope.buildFacet(stackId, item.mode, $scope.panel.time_field, item.value_field, item.valueScript, _interval, filter);
-          if (facet == null) return;
+          if (facet == null) return null;
           $scope.panel.queries.ids.push(stackId);
           stackId++;
           request = request.facet(facet).size(0);
@@ -473,6 +473,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
     $scope.getSegmentData = function (segment, query_id, _range, _interval) {
       var request = $scope.buildQuery(segment, _interval);
+      if (request == null) return;
       $scope.inspector += angular.toJson(JSON.parse(request.toString()),true);
       $scope.runQuery(request, segment, query_id, _range, _interval);
     }
@@ -509,12 +510,13 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       $scope.inspector = "";
       $scope.panelMeta.loading = true;
 
-      if ($scope.panel.stackMode == "terms") 
+      if ($scope.panel.stackMode == "terms" && segment == 0) 
         $scope.buildStackTerms(segment, function() {
           $scope.getSegmentData(segment, query_id, _range, _interval);
         });
-      else 
+      else {
         $scope.getSegmentData(segment, query_id, _range, _interval);
+      }
     };
 
     // function $scope.zoom
