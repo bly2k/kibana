@@ -112,7 +112,11 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       formatString: "{0}",
       queryString: null,
       valueScript: null,
-      hits: true
+      hits: true,
+      stackMode: "manual",
+      stackTermsField: null,
+      stackTermsSize: 10,
+      stackTermsOrder: "count"
     };
 
     _.defaults($scope.panel,_d);
@@ -125,7 +129,6 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       });
 
       $scope.get_data();
-
     };
 
     $scope.addStackChart = function() {
@@ -169,7 +172,13 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
     }
 
     $scope.getStackChartById = function (id) {
-      if (id == 0) return { mode: $scope.panel.mode, time_field: $scope.panel.time_field, value_field: $scope.panel.value_field, alias: $scope.panel.alias, queryString: $scope.panel.queries.queryString };
+      if (id == 0) return { 
+        mode: $scope.panel.mode, 
+        time_field: $scope.panel.time_field, 
+        value_field: $scope.panel.value_field, 
+        alias: $scope.panel.alias, 
+        queryString: $scope.panel.queries.queryString 
+      };
       id = id - 1;
       return (id >= 0 && id < $scope.panel.stackCharts.length) ? $scope.panel.stackCharts[id] : null;
     }
@@ -245,37 +254,42 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       return $scope.panel.interval;
     };
 
-    /**
-     * Fetch the data for a chunk of a queries results. Multiple segments occur when several indicies
-     * need to be consulted (like timestamped logstash indicies)
-     *
-     * The results of this function are stored on the scope's data property. This property will be an
-     * array of objects with the properties info, time_series, and hits. These objects are used in the
-     * render_panel function to create the historgram.
-     *
-     * @param {number} segment   The segment count, (0 based)
-     * @param {number} query_id  The id of the query, generated on the first run and passed back when
-     *                            this call is made recursively for more segments
-     */
-    $scope.get_data = function(segment, query_id) {
-      if (_.isUndefined(segment)) {
-        segment = 0;
-      }
-      delete $scope.panel.error;
-
-      // Make sure we have everything for the request to complete
-      if(dashboard.indices.length === 0) {
+    $scope.buildStackTerms = function(segment, queryFunc) {
+      if ($scope.panel.stackTermsField == null || $scope.panel.stackTermsField == "") {
+        $scope.panel.error = "Stack terms field is required.";
         return;
       }
-      var _range = $scope.get_time_range();
-      var _interval = $scope.get_interval(_range);
 
-      if ($scope.panel.auto_int) {
-        $scope.panel.interval = kbn.secondsToHms(
-          kbn.calculate_interval(_range.from,_range.to,$scope.panel.resolution,0)/1000);
-      }
+      var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      request = request.query(fq);
 
-      $scope.panelMeta.loading = true;
+      var termsFacet = $scope.ejs.TermsFacet('terms')
+        .field($scope.panel.stackTermsField)
+        .size($scope.panel.stackTermsSize)
+        .order($scope.panel.stackTermsOrder);
+
+      request = request.facet(termsFacet).size(0);
+      
+      $scope.inspector += angular.toJson(JSON.parse(request.toString()),true) + "\r\n\r\n---\r\n\r\n";
+
+      var results = request.doSearch();
+
+      results.then(function(results) {
+        $scope.panel.stackCharts = [];
+        _.each(results.facets.terms.terms, function(t) {
+          $scope.panel.stackCharts.push({ mode: $scope.panel.mode, 
+            value_field: $scope.panel.value_field, 
+            alias: t.term, 
+            queryString: $scope.panel.stackTermsField + ":\"" + t.term + "\"", 
+            valueScript: "" });
+        });
+
+        queryFunc();
+      });
+    }
+
+    $scope.buildQuery = function(segment, _interval) {
       var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
 
       var stackedQueries = [];
@@ -306,14 +320,19 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       }
       else {
         //stacked histograms
-        var facetFilter = null;
-        if ($scope.panel.queryString != null && $scope.panel.queryString != "") 
-          facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queryString);
+        $scope.panel.queries.ids = [];
 
-        $scope.panel.queries.ids = [0];
-        var facet = $scope.buildFacet(0, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.valueScript, _interval, facetFilter);
-        if (facet == null) return;
-        request = request.facet(facet).size(0);
+        if ($scope.panel.stackMode != "terms") {
+          //push first metric
+          var facetFilter = null;
+          if ($scope.panel.queryString != null && $scope.panel.queryString != "") 
+            facetFilter = querySrv.getFacetFilter(filterSrv, $scope.panel.queries, $scope.panel.queryString);
+
+          $scope.panel.queries.ids = [0];
+          var facet = $scope.buildFacet(0, $scope.panel.mode, $scope.panel.time_field, $scope.panel.value_field, $scope.panel.valueScript, _interval, facetFilter);
+          if (facet == null) return;
+          request = request.facet(facet).size(0);
+        }
 
         var stackId = 1;
         _.each($scope.panel.stackCharts, function (item) {
@@ -327,10 +346,10 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         });
       }
 
-      // Populate the inspector panel
-      $scope.populate_modal(request);
+      return request;
+    }
 
-      // Then run it
+    $scope.runQuery = function(request, segment, query_id, _range, _interval) {
       var results = request.doSearch();
 
       // Populate scope when we have results
@@ -406,6 +425,52 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
           }
         }
       });
+    }
+
+    $scope.getSegmentData = function (segment, query_id, _range, _interval) {
+      var request = $scope.buildQuery(segment, _interval);
+      $scope.inspector += angular.toJson(JSON.parse(request.toString()),true);
+      $scope.runQuery(request, segment, query_id, _range, _interval);
+    }
+
+    /**
+     * Fetch the data for a chunk of a queries results. Multiple segments occur when several indicies
+     * need to be consulted (like timestamped logstash indicies)
+     *
+     * The results of this function are stored on the scope's data property. This property will be an
+     * array of objects with the properties info, time_series, and hits. These objects are used in the
+     * render_panel function to create the historgram.
+     *
+     * @param {number} segment   The segment count, (0 based)
+     * @param {number} query_id  The id of the query, generated on the first run and passed back when
+     *                            this call is made recursively for more segments
+     */
+    $scope.get_data = function(segment, query_id) {
+      if (_.isUndefined(segment)) {
+        segment = 0;
+      }
+      delete $scope.panel.error;
+
+      // Make sure we have everything for the request to complete
+      if(dashboard.indices.length === 0) return;
+
+      var _range = $scope.get_time_range();
+      var _interval = $scope.get_interval(_range);
+
+      if ($scope.panel.auto_int) {
+        $scope.panel.interval = kbn.secondsToHms(
+          kbn.calculate_interval(_range.from,_range.to,$scope.panel.resolution,0)/1000);
+      }
+
+      $scope.inspector = "";
+      $scope.panelMeta.loading = true;
+
+      if ($scope.panel.stackMode == "terms") 
+        $scope.buildStackTerms(segment, function() {
+          $scope.getSegmentData(segment, query_id, _range, _interval);
+        });
+      else 
+        $scope.getSegmentData(segment, query_id, _range, _interval);
     };
 
     // function $scope.zoom
@@ -436,19 +501,12 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       });
     };
 
-    // I really don't like this function, too much dom manip. Break out into directive?
-    $scope.populate_modal = function(request) {
-      $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
-    };
-
     $scope.set_refresh = function (state) {
       $scope.refresh = state;
     };
 
     $scope.close_edit = function() {
-      if($scope.refresh) {
-        $scope.get_data();
-      }
+      if($scope.refresh) $scope.get_data();
       $scope.refresh =  false;
       $scope.$emit('render');
     };

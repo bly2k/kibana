@@ -100,8 +100,26 @@
     <div class="span3">
       <h5>Stacked Metrics</h5>
     </div>
-  </div> 
-  <div class="row-fluid" ng-show="panel.stackCharts.length > 0">
+  </div>
+  <div class="row-fluid">
+    <div class="span2">
+      <label class="small">Mode</label> 
+      <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.stackMode" ng-options="f for f in ['manual', 'terms']"></select>
+    </div>
+    <div class="span2" ng-show="panel.stackMode == 'terms'">
+      <label class="small">Terms Field</label> 
+      <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackTermsField" ng-change="set_refresh(true)">
+    </div>
+    <div class="span2" ng-show="panel.stackMode == 'terms'">
+      <label class="small">Length</label>
+      <input class="input-small" type="number" ng-model="panel.stackTermsSize" ng-change="set_refresh(true)">
+    </div>
+    <div class="span3" ng-show="panel.stackMode == 'terms'"> 
+      <label class="small">Sort</label> 
+      <select class="input-medium" ng-model="panel.stackTermsOrder" ng-options="f for f in ['count','term','reverse_count','reverse_term']" ng-change="set_refresh(true)"></select></span>
+    </div>
+  </div>
+  <div class="row-fluid" ng-show="panel.stackMode == 'manual' && panel.stackCharts.length > 0">
     <div class="span2">
       <label class="small">Metric</label> 
     </div>
@@ -118,7 +136,7 @@
       <label class="small">Querystring Filter</label>
     </div>
   </div>
-  <div class="row-fluid" ng-repeat="item in panel.stackCharts">
+  <div class="row-fluid" ng-repeat="item in panel.stackCharts" ng-show="panel.stackMode == 'manual'">
     <div class="span2">
       <select ng-change="set_refresh(true)" class="input-small" ng-model="item.mode" ng-options="f for f in ['count','min','mean','max','total']"></select>
     </div>
@@ -143,7 +161,7 @@
       <small>Note: In <strong>{{item.mode}}</strong> mode, the value field <strong>must</strong> be a numeric type</small>
     </div>
   </div>
-  <div class="row-fluid" style="margin-bottom:10px;">
+  <div class="row-fluid" style="margin-bottom:10px;" ng-show="panel.stackMode == 'manual'">
     <button class="btn btn-success " ng-click="addStackChart()" style="">Add Metric</button>
   </div> 
   <h5>Tooltip Settings</h5>
