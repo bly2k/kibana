@@ -205,15 +205,18 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
     }
 
     $scope.getQueryInfo = function (id) {
-      if (!$scope.hasStackCharts())
-      {
+      if (!$scope.hasStackCharts()) {
         var globalAlias = querySrv.list[id];
         var alias = $scope.getStackChartAlias(0);
         if (globalAlias.alias != null && globalAlias.alias != "") alias += " - " + globalAlias.alias;
         return { alias: alias, color: globalAlias.color };
       }
       else {
-        return { alias: $scope.getStackChartAlias(id), color: querySrv.colorAt(parseInt(id)) };
+        var color = ($scope.panel.stackMode == "terms") ? parseInt(id) - 1 : parseInt(id);
+        return { 
+          alias: $scope.getStackChartAlias(id), 
+          color: querySrv.colorAt(color) 
+        };
       }
     }
 
@@ -292,6 +295,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
             value_field: $scope.panel.value_field, 
             alias: t.term, 
             queryString: $scope.panel.stackTermsField + ":\"" + t.term + "\"", 
+            term: t.term,
             valueScript: $scope.panel.valueScript });
         });
 
@@ -303,13 +307,36 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
 
       var stackedQueries = [];
+      
       if ($scope.panel.queryString != null && $scope.panel.queryString != "") 
         stackedQueries.push($scope.panel.queryString);
+      
       if ($scope.hasStackCharts()) {
+        var stackedTerms = [];
+        var stackedCount = 0;
+
         _.each($scope.panel.stackCharts, function (item) {
-          var qs = _.isUndefined(item.queryString) ? null : item.queryString;
-          if (qs != null && qs != "") stackedQueries.push(qs);
+          var term = ($scope.panel.stackMode == "terms") && !_.isUndefined(item.term) ? item.term : null;
+          if (term != null && term != "") {
+            stackedTerms.push(term);
+            stackedCount++;
+          }
+          else {
+            var qs = _.isUndefined(item.queryString) ? null : item.queryString;
+            if (qs != null && qs != "") {
+              stackedQueries.push(qs);
+              stackedCount++;
+            }
+          }
         });
+
+        if (stackedTerms.length > 0) stackedQueries.push({ type: "terms", field: $scope.panel.stackTermsField, terms: stackedTerms });
+
+        //stackedQueries filter are only effective if they are all defined for each stacked chart
+        var stackedAllDefined = stackedCount == $scope.panel.stackCharts.length;
+        if (stackedAllDefined && $scope.panel.stackMode != "terms" && ($scope.panel.queryString == null || $scope.panel.queryString == ""))
+          stackedAllDefined = false;
+        if (!stackedAllDefined) stackedQueries = null;
       }
 
       var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.getQueryStringFilter(), null, stackedQueries);
@@ -346,7 +373,14 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
         var stackId = 1;
         _.each($scope.panel.stackCharts, function (item) {
-          var qs = _.isUndefined(item.queryString) ? null : item.queryString;
+          var qs = null;
+
+          var term = ($scope.panel.stackMode == "terms") && !_.isUndefined(item.term) ? item.term : null;
+          if (term != null && term != "") 
+            qs = { type: "term", field: $scope.panel.stackTermsField, terms: term };
+          else if (!_.isUndefined(item.queryString)) 
+            qs = item.queryString;
+
           var filter = (qs == null || qs == "") ? null : querySrv.getFacetFilter(filterSrv, $scope.panel.queries, qs);
           var facet = $scope.buildFacet(stackId, item.mode, $scope.panel.time_field, item.value_field, item.valueScript, _interval, filter);
           if (facet == null) return;

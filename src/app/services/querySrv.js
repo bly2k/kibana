@@ -159,6 +159,8 @@ function (angular, _, config) {
           queryIds = null;
 
       var hasQueries = (queryIds != null && queryIds.length > 0) || (_.isArray(stackedQueries) && stackedQueries.length > 0);
+      var shouldQueries = [];
+      var must = null;
 
       if (hasQueries) {
         if (_.isArray(highlight) && highlight.length > 0) 
@@ -166,49 +168,57 @@ function (angular, _, config) {
         else
           highlight = null;
 
-        facetQuery = ejs.BoolQuery();
-
         if (queryIds != null && queryIds.length > 0) {
           _.each(queryIds, function (id) {
             var q = self.getEjsObj(id);
             if (_.isObject(q) && highlight != null) q = q.fields(highlight);
-            facetQuery = facetQuery.should(q);
+            if (must == null) must = ejs.BoolQuery();
+            must = must.should(q);
           });
         }
 
         if (_.isArray(stackedQueries)) {
           _.each(stackedQueries, function (query) {
-            var q = ejs.QueryStringQuery(query);
-            if (highlight != null) q = q.fields(highlight);
-            facetQuery = facetQuery.should(q);
-          });
-        }
-      }
-
-      var facetFilter = ejs.BoolFilter();
-    
-      if (queries.mode != "index") 
-        facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
-
-      if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
-        if (_.isString(queryString)) {
-          var qs = ejs.QueryStringQuery(queryString);
-          facetFilter = facetFilter.must(ejs.QueryFilter(qs).cache(true));
-        }
-        else if (_.isArray(queryString)) {
-          _.each(queryString, function (q) {
-            if (!_.isUndefined(q) && q != null && q != "") {
-              var qs = ejs.QueryStringQuery(q);
-              facetFilter = facetFilter.must(ejs.QueryFilter(qs).cache(true));
+            if (_.isString(query)) {
+              var q = ejs.QueryStringQuery(query);
+              if (highlight != null) q = q.fields(highlight);
+              shouldQueries.push(q);
+            }
+            else if (_.isObject(query)) {
+              var type = !_.isUndefined(query.type) ? query.type : null;
+              switch (type) {
+                case "terms": 
+                  {
+                    var q = ejs.TermsQuery(query.field, query.terms);
+                    shouldQueries.push(q);
+                  }
+                  break;
+              }
             }
           });
         }
       }
 
+      var facetFilter = ejs.BoolFilter();
+      if (queries.mode != "index") facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
+      self.appendQueryStringFilter(facetFilter, queryString);
+
+      //optimization: move query into filter
       if (highlight == null) {
-        //testing: move query into filter
-        if (hasQueries) facetFilter = facetFilter.must(ejs.QueryFilter(facetQuery).cache(true));
+        if (must != null) facetFilter = facetFilter.must(ejs.QueryFilter(must).cache(true));
+        _.each(shouldQueries, function (q) {
+          facetFilter = facetFilter.should(ejs.QueryFilter(q).cache(true));
+        });
         facetQuery = ejs.MatchAllQuery();
+      }
+      else {
+        if (must != null || shouldQueries.length > 0) {
+          facetQuery = ejs.BoolQuery();
+          if (must != null) facetQuery = facetQuery.must(must);
+          _.each(shouldQueries, function (q) {
+            facetQuery = facetQuery.should(q);
+          });
+        }
       }
 
       //ensure we don't have an empty must clause
@@ -219,6 +229,39 @@ function (angular, _, config) {
 
       return result;
     };
+
+    this.appendAQueryStringFilter = function (facetFilter, query) {
+      if (_.isString(query)) {
+        var qs = ejs.QueryStringQuery(query);
+        facetFilter = facetFilter.must(ejs.QueryFilter(qs).cache(true));
+      }
+      else if (_.isObject(query)) {
+        var type = !_.isUndefined(query.type) ? query.type : null;
+        switch (type) {
+          case "term": 
+            {
+              var q = ejs.TermFilter(query.field, query.terms);
+              facetFilter = facetFilter.must(q);
+            }
+            break;
+        }
+      }
+    }
+
+    this.appendQueryStringFilter = function (facetFilter, queryString) {
+      if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
+        if (_.isArray(queryString)) {
+          _.each(queryString, function (q) {
+            if (!_.isUndefined(q) && q != null && q != "") {
+              self.appendAQueryStringFilter(facetFilter, q);
+            }
+          });
+        }
+        else if (_.isString(queryString) || _.isObject(queryString)) {
+          self.appendAQueryStringFilter(facetFilter, queryString);
+        }
+      }
+    }
 
     this.getFacetFilter = function (filterSrv, queries, queryString) {
       var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString);
@@ -235,20 +278,7 @@ function (angular, _, config) {
     this.getFacetFilterByQueryId = function (filterSrv, id, queryString) {
       var facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
 
-      if (!_.isUndefined(queryString) && queryString != null && queryString != "") {
-        if (_.isString(queryString)) {
-          var qs = ejs.QueryStringQuery(queryString);
-          facetFilter = facetFilter.must(ejs.QueryFilter(qs));
-        }
-        else if (_.isArray(queryString)) {
-          _.each(queryString, function (q) {
-            if (!_.isUndefined(q) && q != null && q != "") {
-              var qs = ejs.QueryStringQuery(q);
-              facetFilter = facetFilter.must(ejs.QueryFilter(qs));
-            }
-          });
-        }
-      }
+      self.appendQueryStringFilter(facetFilter, queryString);
 
       facetFilter = ejs.QueryFilter(
         ejs.FilteredQuery(
