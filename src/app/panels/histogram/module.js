@@ -254,6 +254,15 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       return $scope.panel.interval;
     };
 
+    $scope.getQueryStringFilter = function() {
+      if ($scope.panel.stackMode == "terms") {
+        var qs = ($scope.panel.queryString != null && $scope.panel.queryString != "") ? $scope.panel.queryString : null;
+        if (qs != null)
+          return [qs, $scope.panel.queries.queryString];
+      }
+      return $scope.panel.queries.queryString;
+    }
+
     $scope.buildStackTerms = function(segment, queryFunc) {
       if ($scope.panel.stackTermsField == null || $scope.panel.stackTermsField == "") {
         $scope.panel.error = "Stack terms field is required.";
@@ -261,7 +270,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       }
 
       var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
-      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString);
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.getQueryStringFilter());
       request = request.query(fq);
 
       var termsFacet = $scope.ejs.TermsFacet('terms')
@@ -277,12 +286,13 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
       results.then(function(results) {
         $scope.panel.stackCharts = [];
+
         _.each(results.facets.terms.terms, function(t) {
           $scope.panel.stackCharts.push({ mode: $scope.panel.mode, 
             value_field: $scope.panel.value_field, 
             alias: t.term, 
             queryString: $scope.panel.stackTermsField + ":\"" + t.term + "\"", 
-            valueScript: "" });
+            valueScript: $scope.panel.valueScript });
         });
 
         queryFunc();
@@ -302,7 +312,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         });
       }
 
-      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString, null, stackedQueries);
+      var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.getQueryStringFilter(), null, stackedQueries);
       request = request.query(fq);
 
       if (!$scope.hasStackCharts() && $scope.hasQueries()) {
