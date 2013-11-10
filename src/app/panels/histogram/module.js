@@ -115,6 +115,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       hits: true,
       stackMode: "manual",
       stackTermsField: null,
+      stackValueField: null,
       stackTermsSize: 10,
       stackTermsOrder: "count"
     };
@@ -276,13 +277,39 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       var fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.getQueryStringFilter());
       request = request.query(fq);
 
-      var termsFacet = $scope.ejs.TermsFacet('terms')
-        .field($scope.panel.stackTermsField)
-        .size($scope.panel.stackTermsSize)
-        .order($scope.panel.stackTermsOrder);
+      switch ($scope.panel.stackTermsOrder) {
+        case "count":
+        case "reverse_count":
+        case "term":
+        case "reverse_term":
+          {
+            var termsFacet = $scope.ejs.TermsFacet('terms')
+              .field($scope.panel.stackTermsField)
+              .size($scope.panel.stackTermsSize)
+              .order($scope.panel.stackTermsOrder);
 
-      request = request.facet(termsFacet).size(0);
-      
+            request = request.facet(termsFacet).size(0);
+          }
+          break;
+
+        default:
+          if ($scope.panel.stackValueField == null || $scope.panel.stackValueField == "") {
+            $scope.panel.error = "Stack value field is required.";
+            return;
+          }
+          {
+            var tsFacet = $scope.ejs.TermStatsFacet('terms')
+              .keyField($scope.panel.stackTermsField)
+              .valueField($scope.panel.stackValueField)
+              .size($scope.panel.stackTermsSize)
+              .order($scope.panel.stackTermsOrder)
+              ;
+
+            request = request.facet(tsFacet).size(0);
+          }
+          break;
+      }
+
       $scope.inspector += angular.toJson(JSON.parse(request.toString()),true) + "\r\n\r\n---\r\n\r\n";
 
       var results = request.doSearch();
