@@ -110,7 +110,7 @@
       <label class="small">Terms Field</label> 
       <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackTermsField" ng-change="set_refresh(true)">
     </div>
-    <div class="span2">
+    <div class="span2" ng-show="panel.stackMode == 'terms'">
       <label class="small">Value Field</label>
       <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackValueField" ng-change="set_refresh(true)">
     </div>
