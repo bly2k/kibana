@@ -17,7 +17,7 @@
         <label class="small">Length</label>
         <input class="input-small" type="number" ng-model="panel.stackTermsSize" ng-change="set_refresh(true)">
       </div>
-      <div class="span3" ng-show="panel.stackMode == 'terms'"> 
+      <div class="editor-option" ng-show="panel.stackMode == 'terms'"> 
         <label class="small">Sort</label> 
         <select class="input-medium" ng-model="panel.stackTermsOrder" ng-options="f for f in ['count','reverse_count','term','reverse_term','total','reverse_total','min','reverse_min','max','reverse_max','mean','reverse_mean']" ng-change="set_refresh(true)"></select></span>
       </div>
