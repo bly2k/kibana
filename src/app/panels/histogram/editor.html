@@ -1,181 +1,84 @@
-  <div class="row-fluid">
-    <div class="span2">
-      <label class="small">Metric</label>
-      <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.mode" ng-options="f for f in ['count','min','mean','max','total','change']"></select>
+<div class="editor-row">
+  <div class="section">
+    <h5>Values</h5>
+    <div class="editor-option">
+      <label class="small">Chart value</label>
+      <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.mode" ng-options="f for f in ['count','min','mean','max','total']"></select>
     </div>
-    <div class="span2">
-      <label class="small">Time Field</label>
-      <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="panel.time_field">
+    <div class="editor-option" ng-show="panel.mode != 'count'">
+      <label class="small">Value Field <tip>This field must contain a numeric value</tip></label>
+        <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-large" ng-model="panel.value_field">
     </div>
-    <div class="span2" ng-show="panel.mode != 'count'">
-      <label class="small">Value Field</label>
-      <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="panel.value_field">
-    </div>
-    <div class="span2">
+    <div class="editor-option">
       <label class="small">Alias</label>
       <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="panel.alias">
     </div>
-    <div class="span4" ng-show="panel.mode != 'count'">
-      <small>Note: In <strong>{{panel.mode}}</strong> mode, the value field <strong>must</strong> be a numeric type</small>
-    </div>
   </div>
-  <div class="row-fluid">
-    <div class="span4" ng-disabled="panel.mode == 'count'">
+</div>
+<div class="editor-row">
+  <div class="section">
+    <div class="editor-option" ng-disabled="panel.mode == 'count'">
       <label class="small" ng-disabled="panel.mode == 'count'">Value Script</label>
       <input ng-disabled="panel.mode == 'count'" ng-change="set_refresh(true)" type="text" class="input-large" ng-model="panel.valueScript">
     </div>
-    <div class="span4">
+    <div class="editor-option">
       <label class="small">Querystring Filter</label>
       <input ng-change="set_refresh(true)" type="text" class="input-large" ng-model="panel.queryString">
     </div>
   </div>
-  <div class="row-fluid">
-      <div class="span2">
-        <label class="small">Format String</label>
-        <input type="text" class="input-small" ng-model="panel.formatString" ng-change="set_refresh(true)">
-      </div>
-      <div class="span2">
-        <label class="small">Decimals</label>
-        <input class="input-small" type="number" ng-model="panel.decimals" ng-change="set_refresh(true)">
-      </div>
-      <div class="span2">
-        <label class="small">Decimal Separator</label>
-        <input type="text" class="input-small" ng-model="panel.decimalSeparator" ng-change="set_refresh(true)">
-      </div>
-      <div class="span2">
-        <label class="small">Comma Separator</label>
-        <input type="text" class="input-small" ng-model="panel.commaSeparator" ng-change="set_refresh(true)">
-      </div>
+</div>
+<div class="editor-row">
+  <div class="editor-option">
+    <label class="small">Format String</label>
+    <input type="text" class="input-small" ng-model="panel.formatString" ng-change="set_refresh(true)">
   </div>
-  <h5>Chart Settings</h5>
-  <div class="row-fluid" style="text-align:center;margin-bottom:10px;">
-    <div class="span1"> <label class="small">Bars</label><input type="checkbox" ng-model="panel.bars" ng-checked="panel.bars"></div>
-    <div class="span1"> <label class="small">Lines</label><input type="checkbox" ng-model="panel.lines" ng-checked="panel.lines"></div>
-    <div class="span1"> <label class="small">Points</label><input type="checkbox" ng-model="panel.points" ng-checked="panel.points"></div>
-    <div class="span1"> <label class="small">Stack</label><input type="checkbox" ng-model="panel.stack" ng-checked="panel.stack"></div>
-    <div class="span1" ng-show="panel.stack">
-      <label style="white-space:nowrap" class="small">Percent <tip>Stack as a percentage of total</tip></label>
-      <input type="checkbox"  ng-model="panel.percentage" ng-checked="panel.percentage">
+  <div class="editor-option">
+    <label class="small">Decimals</label>
+    <input class="input-small" type="number" ng-model="panel.decimals" ng-change="set_refresh(true)">
+  </div>
+  <div class="editor-option">
+    <label class="small">Decimal Separator</label>
+    <input type="text" class="input-small" ng-model="panel.decimalSeparator" ng-change="set_refresh(true)">
+  </div>
+  <div class="editor-option">
+    <label class="small">Comma Separator</label>
+    <input type="text" class="input-small" ng-model="panel.commaSeparator" ng-change="set_refresh(true)">
+  </div>
+</div>
+<div class="editor-row">
+  <div class="section">
+    <h5>Transform Series</h5>
+    <div class="editor-option" ng-show="panel.mode != 'count'">
+      <label class="small">Scale</label>
+        <input type="text" class="input-mini" ng-model="panel.scale">
     </div>
-    <div class="span1"> <label class="small">Legend</label><input type="checkbox" ng-model="panel.legend" ng-checked="panel.legend"></div>
-    <div class="span1"> <label class="small" bs-tooltip="'Show document hits'">Hits</label><input type="checkbox" ng-model="panel.hits" ng-checked="panel.hits"></div>
-    <div class="span1"> <label class="small">xAxis</label><input type="checkbox" ng-model="panel['x-axis']" ng-checked="panel['x-axis']"></div>
-    <div class="span1"> <label class="small">yAxis</label><input type="checkbox" ng-model="panel['y-axis']" ng-checked="panel['y-axis']"></div>
-  </div> 
-  <div class="row-fluid" style="margin-bottom:10px;">
-    <div class="span2" ng-show="panel.lines">
-      <label class="small">Line Fill</label>
-      <select class="input-mini" ng-model="panel.fill" ng-options="f for f in [0,1,2,3,4,5,6,7,8,9,10]"></select>
+    <div class="editor-option">
+      <label class="small">Seconds <tip>Normalize intervals to per-second</tip></label><input type="checkbox" ng-model="panel.scaleSeconds" ng-checked="panel.scaleSeconds">
     </div>
-    <div class="span2" ng-show="panel.lines">
-      <label class="small">Line Width</label>
-      <select class="input-mini" ng-model="panel.linewidth" ng-options="f for f in [0,1,2,3,4,5,6,7,8,9,10]"></select>
+    <div class="editor-option">
+      <label class="small">Derivative <tip>Plot the change per interval in the series</tip></label><input type="checkbox" ng-model="panel.derivative" ng-checked="panel.derivative" ng-change="set_refresh(true)">
     </div>
   </div>
-  <div class="row-fluid">
-    <div class="span2">
-      <label class="small">Time correction</label>
-      <select ng-model="panel.timezone" class='input-small' ng-options="f for f in ['browser','utc']"></select>
-    </div>
-    <div class="span1"> <label class="small">Selectable</label><input type="checkbox" ng-model="panel.interactive" ng-checked="panel.interactive"></div>
-    <div class="span2">
-      <label class="small">Zoom Links</label><input type="checkbox" ng-model="panel.zoomlinks" ng-checked="panel.zoomlinks" />
-    </div>
-        <div class="span2">
-      <label class="small">View Options</label><input type="checkbox" ng-model="panel.options" ng-checked="panel.options" />
-    </div>
-    <div class="span2">
-      <label class="small">Auto-interval</label><input type="checkbox" ng-model="panel.auto_int" ng-checked="panel.auto_int" />
-    </div>
-    <div class="span2" ng-show='panel.auto_int'>
-      <label class="small">Resolution <tip>Shoot for this many data points, rounding to sane intervals</tip></label>
-      <input type="number" class='input-mini' ng-model="panel.resolution" ng-change='set_refresh(true)'/>
-    </div>
-    <div class="span2" ng-hide='panel.auto_int'>
-      <label class="small">Interval <tip>Use Elasticsearch date math format (eg 1m, 5m, 1d, 2w, 1y)</tip></label>
-      <input type="text" class='input-mini' ng-model="panel.interval" ng-change='set_refresh(true)'/>
-    </div>
+</div>
+<h5>Time Options</h5>
+<div class="editor-row">
+  <div class="editor-option">
+    <label class="small">Time Field</label>
+      <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="panel.time_field">
   </div>
-  <div class="row-fluid" style="margin-bottom:10px;">
-    <div class="span3">
-      <h5>Stacked Metrics</h5>
-    </div>
+  <div class="editor-option">
+    <label class="small">Time correction</label>
+    <select ng-model="panel.timezone" class='input-small' ng-options="f for f in ['browser','utc']"></select>
   </div>
-  <div class="row-fluid">
-    <div class="span2">
-      <label class="small">Mode</label> 
-      <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.stackMode" ng-options="f for f in ['manual', 'terms']"></select>
-    </div>
-    <div class="span2" ng-show="panel.stackMode == 'terms'">
-      <label class="small">Terms Field</label> 
-      <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackTermsField" ng-change="set_refresh(true)">
-    </div>
-    <div class="span2" ng-show="panel.stackMode == 'terms'">
-      <label class="small">Value Field</label>
-      <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackValueField" ng-change="set_refresh(true)">
-    </div>
-    <div class="span2" ng-show="panel.stackMode == 'terms'">
-      <label class="small">Length</label>
-      <input class="input-small" type="number" ng-model="panel.stackTermsSize" ng-change="set_refresh(true)">
-    </div>
-    <div class="span3" ng-show="panel.stackMode == 'terms'"> 
-      <label class="small">Sort</label> 
-      <select class="input-medium" ng-model="panel.stackTermsOrder" ng-options="f for f in ['count','reverse_count','term','reverse_term','total','reverse_total','min','reverse_min','max','reverse_max','mean','reverse_mean']" ng-change="set_refresh(true)"></select></span>
-    </div>
+  <div class="editor-option">
+    <label class="small">Auto-interval</label><input type="checkbox" ng-model="panel.auto_int" ng-checked="panel.auto_int" />
   </div>
-  <div class="row-fluid" ng-show="panel.stackMode == 'manual' && panel.stackCharts.length > 0">
-    <div class="span2">
-      <label class="small">Metric</label> 
-    </div>
-    <div class="span2">
-      <label class="small">Value Field</label>
-    </div>
-    <div class="span2">
-      <label class="small">Alias</label>
-    </div>
-    <div class="span2">
-      <label class="small">Value Script</label>
-    </div>
-    <div class="span2">
-      <label class="small">Querystring Filter</label>
-    </div>
+  <div class="editor-option" ng-show='panel.auto_int'>
+    <label class="small">Resolution <tip>Shoot for this many data points, rounding to sane intervals</tip></label>
+    <input type="number" class='input-mini' ng-model="panel.resolution" ng-change='set_refresh(true)'/>
   </div>
-  <div class="row-fluid" ng-repeat="item in panel.stackCharts" ng-show="panel.stackMode == 'manual'">
-    <div class="span2">
-      <select ng-change="set_refresh(true)" class="input-small" ng-model="item.mode" ng-options="f for f in ['count','min','mean','max','total']"></select>
-    </div>
-    <div class="span2">
-      <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="item.value_field">
-    </div>
-    <div class="span2">
-      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.alias">
-    </div>
-    <div class="span2">
-      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.valueScript" ng-disabled="item.mode == 'count'">
-    </div>
-    <div class="span2">
-      <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.queryString">
-    </div>
-    <div class="span2">
-      <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
-      <i ng-click="_.move(panel.stackCharts,$index,$index-1); set_refresh(true);" ng-hide="$first" class="pointer icon-arrow-up"></i>
-      <i ng-click="_.move(panel.stackCharts,$index,$index+1); set_refresh(true);" ng-hide="$last" class="pointer icon-arrow-down"></i>
-    </div>
-    <div class="span6" ng-show="item.mode != 'count'">
-      <small>Note: In <strong>{{item.mode}}</strong> mode, the value field <strong>must</strong> be a numeric type</small>
-    </div>
+  <div class="editor-option" ng-hide='panel.auto_int'>
+    <label class="small">Interval <tip>Use Elasticsearch date math format (eg 1m, 5m, 1d, 2w, 1y)</tip></label>
+    <input type="text" class='input-mini' ng-model="panel.interval" ng-change='set_refresh(true)'/>
   </div>
-  <div class="row-fluid" style="margin-bottom:10px;" ng-show="panel.stackMode == 'manual'">
-    <button class="btn btn-success " ng-click="addStackChart()" style="">Add Metric</button>
-  </div> 
-  <h5>Tooltip Settings</h5>
-  <div class="row-fluid" style="margin-bottom:10px;">
-    <div class="span3">
-      <label class="small">Stacked Values <tip>How should the values in stacked charts to be calculated?</tip></label>
-      <select class="input-medium" ng-model="panel.tooltip.value_type" ng-options="f for f in ['cumulative','individual']"></select>
-    </div>
-    <div class="span3">
-      <label class="small">Display Query <tip>If an alias is set, it will be shown in the tooltip. If not, should it show the query?</tip></label>
-      <input type="checkbox" ng-model="panel.tooltip.query_as_alias" />
-    </div>
-  </div>
+</div>

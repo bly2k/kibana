@@ -35,9 +35,8 @@ define([
   'kbn',
   'moment',
   './timeSeries',
-
   'jquery.flot',
-  'jquery.flot.pie',
+  'jquery.flot.events',
   'jquery.flot.selection',
   'jquery.flot.time',
   'jquery.flot.stack',
@@ -62,8 +61,16 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       ],
       editorTabs : [
         {
+          title:'Stacked Metrics',
+          src:'app/panels/histogram/stackedMetrics.html'
+        },
+        {
+          title:'Style',
+          src:'app/panels/histogram/styleEditor.html'
+        },
+        {
           title:'Queries',
-          src:'app/partials/querySelect.html'
+          src:'app/panels/histogram/queriesEditor.html'
         }
       ],
       status  : "Stable",
@@ -74,35 +81,52 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
     // Set and populate defaults
     var _d = {
-      mode        : 'count',
-      time_field  : '@timestamp',
-      queries     : {
-        mode        : 'all',
-        ids         : []
+      mode          : 'count',
+      time_field    : '@timestamp',
+      queries       : {
+        mode          : 'all',
+        ids           : []
       },
-      value_field : null,
-      auto_int    : true,
-      resolution  : 100,
-      interval    : '5m',
-      intervals   : ['auto','1s','1m','5m','10m','30m','1h','3h','12h','1d','1w','1M','1y'],
-      fill        : 0,
-      linewidth   : 3,
-      timezone    : 'browser', // browser, utc or a standard timezone
-      spyable     : true,
-      zoomlinks   : true,
-      bars        : true,
-      stack       : true,
-      points      : false,
-      lines       : false,
-      legend      : true,
-      'x-axis'    : true,
-      'y-axis'    : true,
-      percentage  : false,
-      interactive : true,
-      options     : true,
-      tooltip     : {
+      annotate      : {
+        enable      : false,
+        query       : "*",
+        size        : 20,
+        field       : '_type',
+        sort        : ['_score','desc']
+      },
+      value_field   : null,
+      auto_int      : true,
+      resolution    : 100,
+      interval      : '5m',
+      intervals     : ['auto','1s','1m','5m','10m','30m','1h','3h','12h','1d','1w','1y'],
+      fill          : 0,
+      linewidth     : 3,
+      pointradius   : 5,
+      timezone      : 'browser', // browser, utc or a standard timezone
+      spyable       : true,
+      zoomlinks     : true,
+      bars          : true,
+      stack         : true,
+      points        : false,
+      lines         : false,
+      legend        : true,
+      show_query    : true,
+      legend_counts : true,
+      'x-axis'      : true,
+      'y-axis'      : true,
+      percentage    : false,
+      zerofill      : true,
+      interactive   : true,
+      options       : true,
+      derivative    : false,
+      scale         : 1,
+      tooltip       : {
         value_type: 'cumulative',
-        query_as_alias: false
+        query_as_alias: true
+      },
+      grid          : {
+        max: null,
+        min: 0
       },
       alias: "",
       stackCharts : [], //array of { mode: "count", value_field: "", alias: "", queryString: "", valueScript: "" }
@@ -121,6 +145,11 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
     };
 
     _.defaults($scope.panel,_d);
+    _.defaults($scope.panel.tooltip,_d.tooltip);
+    _.defaults($scope.panel.annotate,_d.annotate);
+    _.defaults($scope.panel.grid,_d.grid);
+
+
 
     $scope.init = function() {
       // Hide view options by default
@@ -128,6 +157,10 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       $scope.$on('refresh',function(){
         $scope.get_data();
       });
+
+      // Always show the query if an alias isn't set. Users can set an alias if the query is too
+      // long
+      $scope.panel.tooltip.query_as_alias = true;
 
       $scope.get_data();
     };
@@ -170,6 +203,18 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       facet = facet.interval($scope.getFacetInterval(interval));
       if (facetFilter != null) facet = facet.facetFilter(facetFilter);
       return facet;
+    }
+
+    $scope.getValueAlias = function() {
+      if ($scope.hasStackCharts()) return "";
+      var result = $scope.panel.alias;
+      if (_.isUndefined(result) || result == "" || result == null) return $scope.panel.value_field;
+      return result;
+    }
+
+    $scope.getValueMetric = function() {
+      if ($scope.hasStackCharts()) return "";
+      return $scope.panel.mode;
     }
 
     $scope.getStackChartById = function (id) {
@@ -373,7 +418,10 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         //unstacked histograms - kibana method
         $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
 
-        _.each($scope.panel.queries.ids, function(id) {
+        var queries = querySrv.getQueryObjs($scope.panel.queries.ids);
+
+        _.each(queries, function(q) {
+          var id = q.id;
           var facetFilter = null;
           if (!querySrv.isMatchAllQuery(id) || (!_.isUndefined($scope.panel.queryString) && !_.isNull($scope.panel.queryString) && $scope.panel.queryString != "")) 
             facetFilter = querySrv.getFacetFilterByQueryId(filterSrv, id, $scope.panel.queryString);
@@ -429,6 +477,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         if(segment === 0) {
           $scope.hits = 0;
           $scope.data = [];
+          $scope.annotations = [];
           query_id = $scope.query_id = new Date().getTime();
         }
 
@@ -438,11 +487,8 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
           return;
         }
 
-        // Convert facet ids to numbers
-        var facetIds = _.map(_.keys(results.facets),function(k){return parseInt(k, 10);});
-
         // Make sure we're still on the same query/queries
-        if($scope.query_id === query_id && _.difference(facetIds, $scope.panel.queries.ids).length === 0) {
+        if($scope.query_id === query_id) {
 
           var i = 0,
             time_series,
@@ -453,12 +499,13 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
             // we need to initialize the data variable on the first run,
             // and when we are working on the first segment of the data.
             if(_.isUndefined($scope.data[i]) || segment === 0) {
-              time_series = new timeSeries.ZeroFilled({
+              var tsOpts = {
                 interval: _interval,
                 start_date: _range && _range.from,
                 end_date: _range && _range.to,
-                fill_style: 'minimal'
-              });
+                fill_style: $scope.panel.derivative ? 'null' : 'minimal'
+              };
+              time_series = new timeSeries.ZeroFilled(tsOpts);
               hits = 0;
             } else {
               time_series = $scope.data[i].time_series;
@@ -518,16 +565,24 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
      *                            this call is made recursively for more segments
      */
     $scope.get_data = function(segment, query_id) {
+      var
+        _range,
+        _interval,
+        request,
+        queries,
+        results;
+
       if (_.isUndefined(segment)) {
         segment = 0;
       }
       delete $scope.panel.error;
 
       // Make sure we have everything for the request to complete
-      if(dashboard.indices.length === 0) return;
-
-      var _range = $scope.get_time_range();
-      var _interval = $scope.get_interval(_range);
+      if(dashboard.indices.length === 0) {
+        return;
+      }
+      _range = $scope.get_time_range();
+      _interval = $scope.get_interval(_range);
 
       if ($scope.panel.auto_int) {
         $scope.panel.interval = kbn.secondsToHms(
@@ -574,12 +629,19 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       });
     };
 
+    // I really don't like this function, too much dom manip. Break out into directive?
+    $scope.populate_modal = function(request) {
+      $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
+    };
+
     $scope.set_refresh = function (state) {
       $scope.refresh = state;
     };
 
     $scope.close_edit = function() {
-      if($scope.refresh) $scope.get_data();
+      if($scope.refresh) {
+        $scope.get_data();
+      }
       $scope.refresh =  false;
       $scope.$emit('render');
     };
@@ -605,6 +667,30 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         angular.element(window).bind('resize', function(){
           render_panel();
         });
+
+        var scale = function(series,factor) {
+          return _.map(series,function(p) {
+            return [p[0],p[1]*factor];
+          });
+        };
+
+        var scaleSeconds = function(series,interval) {
+          return _.map(series,function(p) {
+            return [p[0],p[1]/kbn.interval_to_seconds(interval)];
+          });
+        };
+
+        var derivative = function(series) {
+          return _.map(series, function(p,i) {
+            var _v;
+            if(i === 0 || p[1] === null) {
+              _v = [p[0],null];
+            } else {
+              _v = series[i-1][1] === null ? [p[0],null] : [p[0],p[1]-(series[i-1][1])];
+            }
+            return _v;
+          });
+        };
 
         // Function for rendering panel
         function render_panel() {
@@ -641,7 +727,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
                 bars:   {
                   show: scope.panel.bars,
                   fill: 1,
-                  barWidth: barwidth/1.8,
+                  barWidth: barwidth/1.5,
                   zero: false,
                   lineWidth: 0
                 },
@@ -649,14 +735,14 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
                   show: scope.panel.points,
                   fill: 1,
                   fillColor: false,
-                  radius: 5
+                  radius: scope.panel.pointradius
                 },
                 shadowSize: 1
               },
               yaxis: {
                 show: scope.panel['y-axis'],
-                min: 0,
-                max: scope.panel.percentage && scope.panel.stack ? 100 : null,
+                min: scope.panel.grid.min,
+                max: scope.panel.percentage && scope.panel.stack ? 100 : scope.panel.grid.max,
               },
               xaxis: {
                 timezone: scope.panel.timezone,
@@ -693,8 +779,19 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
               }), true);
             }
 
+
             for (var i = 0; i < scope.data.length; i++) {
-              scope.data[i].data = scope.data[i].time_series.getFlotPairs(required_times);
+              var _d = scope.data[i].time_series.getFlotPairs(required_times);
+              if(scope.panel.derivative) {
+                _d = derivative(_d);
+              }
+              if(scope.panel.scale !== 1) {
+                _d = scale(_d,scope.panel.scale);
+              }
+              if(scope.panel.scaleSeconds) {
+                _d = scaleSeconds(_d,scope.panel.interval);
+              }
+              scope.data[i].data = _d;
             }
 
             scope.plot = $.plot(elem, scope.data, options);
@@ -736,7 +833,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
         var $tooltip = $('<div>');
         elem.bind("plothover", function (event, pos, item) {
-          var group, value;
+          var group, value, timestamp;
           if (item) {
             require(['jquery.number'], function(){
               if (item.series.info.alias || scope.panel.tooltip.query_as_alias) {
@@ -747,11 +844,13 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
               } else {
                 group = kbn.query_color_dot(item.series.color, 15) + ' ';
               }
-              if (scope.panel.stack && scope.panel.tooltip.value_type === 'individual')  {
-                value = item.datapoint[1] - item.datapoint[2];
-              } else {
-                value = item.datapoint[1];
-              }
+              value = (scope.panel.stack && scope.panel.tooltip.value_type === 'individual') ?
+                item.datapoint[1] - item.datapoint[2] :
+                item.datapoint[1];
+
+              timestamp = scope.panel.timezone === 'browser' ?
+                moment(item.datapoint[0]) :
+                moment.utc(item.datapoint[0]);
 
               var formatted = $.number(value, scope.panel.decimals, scope.panel.decimalSeparator, scope.panel.commaSeparator);
               if (!_.isUndefined(scope.panel.formatString) && scope.panel.formatString != "")
@@ -759,7 +858,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
               $tooltip
                 .html(
-                  group + formatted + " @ " + moment(item.datapoint[0]).format(hover_time_format(scope.get_interval()))
+                  group + formatted + " @ " + timestamp.format(hover_time_format(scope.get_interval()))
                 )
                 .place_tt(pos.pageX, pos.pageY);
             });

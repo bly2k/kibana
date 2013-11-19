@@ -36,6 +36,10 @@ define([
       self.ids = dashboard.current.services.filter.ids;
       _f = dashboard.current.services.filter;
 
+      _.each(self.list,function(f) {
+        self.set(f,f.id,true);
+      });
+
       // Date filters hold strings now, not dates
       /*
       _.each(self.getByType('time',true),function(time) {
@@ -51,7 +55,7 @@ define([
     this.set = function(filter,id,noRefresh) {
       var _r;
       _.defaults(filter,{mandate:'must'});
-      filter.active = true;
+      if (_.isUndefined(filter.active)) filter.active = true;
       if(!_.isUndefined(id)) {
         if(!_.isUndefined(self.list[id])) {
           _.extend(self.list[id],filter);
@@ -66,7 +70,8 @@ define([
           var _id = nextId();
           var _filter = {
             alias: '',
-            id: _id
+            id: _id,
+            mandate: 'must'
           };
           _.defaults(filter,_filter);
           self.list[_id] = filter;

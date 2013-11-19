@@ -13,7 +13,7 @@ require.config({
     text:                     '../vendor/require/text',
     moment:                   '../vendor/moment',
     filesaver:                '../vendor/filesaver',
-
+    chromath:                 '../vendor/chromath',
     angular:                  '../vendor/angular/angular',
     'angular-dragdrop':       '../vendor/angular/angular-dragdrop',
     'angular-strap':          '../vendor/angular/angular-strap',
@@ -32,6 +32,7 @@ require.config({
 
     'jquery.flot':            '../vendor/jquery/jquery.flot',
     'jquery.flot.pie':        '../vendor/jquery/jquery.flot.pie',
+    'jquery.flot.events':     '../vendor/jquery/jquery.flot.events',
     'jquery.flot.selection':  '../vendor/jquery/jquery.flot.selection',
     'jquery.flot.stack':      '../vendor/jquery/jquery.flot.stack',
     'jquery.flot.stackpercent':'../vendor/jquery/jquery.flot.stackpercent',
@@ -69,11 +70,11 @@ require.config({
     'jquery-ui':            ['jquery'],
     'jquery.flot':          ['jquery'],
     'jquery.flot.pie':      ['jquery', 'jquery.flot'],
+    'jquery.flot.events':   ['jquery', 'jquery.flot'],
     'jquery.flot.selection':['jquery', 'jquery.flot'],
     'jquery.flot.stack':    ['jquery', 'jquery.flot'],
     'jquery.flot.stackpercent':['jquery', 'jquery.flot'],
     'jquery.flot.time':     ['jquery', 'jquery.flot'],
-    'jquery.number':        ['jquery'],
 
     'angular-sanitize':     ['angular'],
     'angular-cookies':      ['angular'],
@@ -95,5 +96,6 @@ require.config({
       deps: ['jquery'],
       exports: 'd3'
     }
-  }
+  },
+  waitSeconds: 60,
 });

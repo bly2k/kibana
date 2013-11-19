@@ -37,7 +37,7 @@ function (angular, app, _, $, kbn, d3) {
       editorTabs : [
         {title:'Queries', src:'app/partials/querySelect.html'}
       ],
-      status  : "Beta",
+      status  : "Stable",
       description : "Displays the results of an elasticsearch facet as a pie chart, bar chart, or a "+
         "table"
     };
@@ -49,9 +49,7 @@ function (angular, app, _, $, kbn, d3) {
         ids         : []
       },
       field   : '_type',
-      filterField: null,
       exclude : [],
-      include : null,
       missing : true,
       other   : true,
       size    : 10,
@@ -64,6 +62,8 @@ function (angular, app, _, $, kbn, d3) {
       chart       : 'bar',
       counter_pos : 'above',
       spyable     : true,
+      filterField: null,
+      include : null,
       mode: "count",
       valueField: "",
       decimals: 0,
@@ -184,8 +184,12 @@ function (angular, app, _, $, kbn, d3) {
       }
 
       $scope.panelMeta.loading = true;
+      var request,
+        results,
+        boolQuery,
+        queries;
 
-      var request = $scope.ejs.Request().indices(dashboard.indices);
+      request = $scope.ejs.Request().indices(dashboard.indices);
 
       $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
 
@@ -239,7 +243,7 @@ function (angular, app, _, $, kbn, d3) {
       // Populate the inspector panel
       $scope.inspector = angular.toJson(JSON.parse(request.toString()),true);
 
-      var results = request.doSearch();
+      results = request.doSearch();
 
       // Populate scope when we have results
       results.then(function(results) {
@@ -312,8 +316,10 @@ function (angular, app, _, $, kbn, d3) {
     };
 
     $scope.close_edit = function() {
-      if ($scope.refresh) $scope.get_data();
-      $scope.refresh = false;
+      if($scope.refresh) {
+        $scope.get_data();
+      }
+      $scope.refresh =  false;
     };
 
     $scope.showMeta = function(term) {
@@ -341,6 +347,7 @@ function (angular, app, _, $, kbn, d3) {
     return {
       restrict: 'A',
       link: function(scope, elem) {
+
         // Receive render events
         scope.$on('render',function(){
           render_panel();
@@ -430,12 +437,12 @@ function (angular, app, _, $, kbn, d3) {
               if(elem.is(":visible")){
                 //setTimeout(function(){
                   scope.legend = plot.getData();
+                  if(!scope.$$phase) {
+                    scope.$apply();
+                  }
                 //});
               }
 
-              if(!scope.$$phase) {
-                scope.$apply();
-              }
             } catch(e) {
               elem.text(e);
             }
@@ -466,6 +473,7 @@ function (angular, app, _, $, kbn, d3) {
       }
     };
   });
+
 
   module.directive('bubbles', function(querySrv) {
     return {

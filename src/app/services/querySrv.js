@@ -1,14 +1,16 @@
 define([
   'angular',
   'underscore',
-  'config'
+  'config',
+  'kbn'
 ],
-function (angular, _, config) {
+function (angular, _, config, kbn) {
   'use strict';
 
   var module = angular.module('kibana.services');
 
-  module.service('querySrv', function(dashboard, ejsResource) {
+  module.service('querySrv', function(dashboard, ejsResource, filterSrv, $q) {
+
     // Create an object to hold our service state on the dashboard
     dashboard.current.services.query = dashboard.current.services.query || {};
     _.defaults(dashboard.current.services.query,{
@@ -16,18 +18,6 @@ function (angular, _, config) {
       list : {},
       ids : [],
     });
-
-    // Defaults for query objects
-    var _query = {
-      query: '*',
-      alias: '',
-      pin: false,
-      type: 'lucene'
-    };
-
-    // For convenience
-    var ejs = ejsResource(config.elasticsearch);
-    var _q = dashboard.current.services.query;
 
     this.colors = [
       "#7EB26D","#EAB839","#6ED0E0","#EF843C","#E24D42","#1F78C1","#BA43A9","#705DA0", //1
@@ -39,26 +29,112 @@ function (angular, _, config) {
       "#E0F9D7","#FCEACA","#CFFAFF","#F9E2D2","#FCE2DE","#BADFF4","#F9D9F9","#DEDAF7"  //7
     ];
 
-    // Define the query types and the version of elasticsearch they were first available in
-    this.queryTypes = [
-      {name:'lucene',require:">=0.17.0"},
-      {name:'regex',require:">=0.90.3"},
-      {name:'derive',require:">=2.0.0"}
-    ];
+    // For convenience
+    var ejs = ejsResource(config.elasticsearch);
+    var _q = dashboard.current.services.query;
 
+    // Holds all actual queries, including all resolved abstract queries
+    var resolvedQueries = [];
+
+    // Defaults for generic query object
+    var _query = {
+      alias: '',
+      pin: false,
+      type: 'lucene',
+      enable: true
+    };
+
+    // Defaults for specific query types
+    var _dTypes = {
+      "lucene": {
+        query: "*"
+      },
+      "regex": {
+        query: ".*"
+      },
+      "topN": {
+        query: "*",
+        field: "_type",
+        size: 5,
+        union: 'AND'
+      }
+    };
+
+    // query type meta data that is not stored on the dashboard object
+    this.queryTypes = {
+      lucene: {
+        require:">=0.17.0",
+        icon: "icon-circle",
+        resolve: function(query) {
+          // Simply returns itself
+          var p = $q.defer();
+          p.resolve(_.extend(query,{parent:query.id}));
+          return p.promise;
+        }
+      },
+      regex: {
+        require:">=0.90.3",
+        icon: "icon-circle",
+        resolve: function(query) {
+          // Simply returns itself
+          var p = $q.defer();
+          p.resolve(_.extend(query,{parent:query.id}));
+          return p.promise;
+        }
+      },
+      topN : {
+        require:">=0.90.3",
+        icon: "icon-cog",
+        resolve: function(q) {
+          var suffix = '';
+          if (q.union === 'AND') {
+            suffix = ' AND (' + (q.query||'*') + ')';
+          } else if (q.union === 'OR') {
+            suffix = ' OR (' + (q.query||'*') + ')';
+          }
+
+          var request = ejs.Request().indices(dashboard.indices);
+          // Terms mode
+          request = request
+            .facet(ejs.TermsFacet('query')
+              .field(q.field)
+              .size(q.size)
+              .facetFilter(ejs.QueryFilter(
+                ejs.FilteredQuery(
+                  ejs.QueryStringQuery(q.query || '*'),
+                  filterSrv.getBoolFilter(filterSrv.ids)
+                  )))).size(0);
+
+          var results = request.doSearch();
+          // Like the regex and lucene queries, this returns a promise
+          return results.then(function(data) {
+            var _colors = kbn.colorSteps(q.color,data.facets.query.terms.length);
+            var i = -1;
+            return _.map(data.facets.query.terms,function(t) {
+              ++i;
+              return self.defaults({
+                query  : q.field+':"'+kbn.addslashes(t.term)+'"'+suffix,
+                alias  : t.term + (q.alias ? " ("+q.alias+")" : ""),
+                type   : 'lucene',
+                color  : _colors[i],
+                parent : q.id
+              });
+            });
+          });
+        }
+      }
+    };
 
     // Save a reference to this
     var self = this;
 
     this.init = function() {
-      _q = dashboard.current.services.query;
       self.list = dashboard.current.services.query.list;
       self.ids = dashboard.current.services.query.ids;
 
       // Check each query object, populate its defaults
-      _.each(self.list,function(query,id) {
-        _.defaults(query,_query);
-        query.color = query.color || self.colorAt(id);
+      _.each(self.list,function(query) {
+        query = self.defaults(query);
       });
 
       if (self.ids.length === 0) {
@@ -66,7 +142,8 @@ function (angular, _, config) {
       }
     };
 
-    // This is used both for adding queries and modifying them. If an id is passed, the query at that id is updated
+    // This is used both for adding queries and modifying them. If an id is passed,
+    // the query at that id is updated
     this.set = function(query,id) {
       if(!_.isUndefined(id)) {
         if(!_.isUndefined(self.list[id])) {
@@ -76,15 +153,22 @@ function (angular, _, config) {
           return false;
         }
       } else {
-        var _id = query.id || nextId();
-        query.id = _id;
-        query.color = query.color || self.colorAt(_id);
-        _.defaults(query,_query);
-
-        self.list[_id] = query;
-        self.ids.push(_id);
-        return _id;
+        // Query must have an id and color already
+        query.id = _.isUndefined(query.id) ? nextId() : query.id;
+        query.color = query.color || self.colorAt(query.id);
+        // Then it can get defaults
+        query = self.defaults(query);
+        self.list[query.id] = query;
+        self.ids.push(query.id);
+        return query.id;
       }
+    };
+
+    this.defaults = function(query) {
+      _.defaults(query,_query);
+      _.defaults(query,_dTypes[query.type]);
+      query.color = query.color || self.colorAt(query.id);
+      return query;
     };
 
     this.remove = function(id) {
@@ -106,6 +190,7 @@ function (angular, _, config) {
       return self.toEjsObj(self.list[id]);
     };
 
+    // These are the only query types that can be returned by a compound query.
     this.toEjsObj = function (q) {
       switch(q.type)
       {
@@ -114,35 +199,64 @@ function (angular, _, config) {
       case 'regex':
         return ejs.RegexpQuery('_all',q.query);
       default:
-        return _.isUndefined(q.query) ? false : ejs.QueryStringQuery(q.query || '*');
+        return false;
       }
     };
 
-    this.findQuery = function(queryString) {
-      return _.findWhere(self.list,{query:queryString});
+    //
+    this.getQueryObjs = function(ids) {
+      if(_.isUndefined(ids)) {
+        return resolvedQueries;
+      } else {
+        return _.flatten(_.map(ids,function(id) {
+          return _.where(resolvedQueries,{parent:id});
+        }));
+      }
     };
 
+    // BROKEN
     this.idsByMode = function(config) {
       switch(config.mode)
       {
       case 'all':
-        return self.ids;
+        return _.pluck(_.where(self.list,{enable:true}),'id');
       case 'pinned':
-        return _.pluck(_.where(self.list,{pin:true}),'id');
+        return _.pluck(_.where(self.list,{pin:true,enable:true}),'id');
       case 'unpinned':
-        return _.difference(self.ids,_.pluck(_.where(self.list,{pin:true}),'id'));
+        return _.pluck(_.where(self.list,{pin:false,enable:true}),'id');
       case 'selected':
-        return _.intersection(self.ids,config.ids);
+        return _.intersection(_.pluck(_.where(self.list,{enable:true}),'id'),config.ids);
       case 'none':
       case 'index':
         return [];
       default:
-        return self.ids;
+        return _.pluck(_.where(self.list,{enable:true}),'id');
       }
+    };
+
+    // This populates the internal query list and returns a promise containing it
+    this.resolve = function() {
+      // Find ids of all abstract queries
+      // Get a list of resolvable ids, constrast with total list to get abstract ones
+      return $q.all(_.map(self.ids,function(q) {
+        return self.queryTypes[self.list[q].type].resolve(_.clone(self.list[q])).then(function(data){
+          return data;
+        });
+      })).then(function(data) {
+        resolvedQueries = _.flatten(data);
+        _.each(resolvedQueries,function(q,i) {
+          q.id = i;
+        });
+        return resolvedQueries;
+      });
     };
 
     this.isMatchAllQuery = function(id) {
       var q = self.list[id];
+      return self.isMatchAllQueryObj(q);
+    }
+
+    this.isMatchAllQueryObj = function(q) {
       return (q.query == "*" || q.query == "");
     }
 
@@ -154,11 +268,13 @@ function (angular, _, config) {
       var facetQuery = ejs.MatchAllQuery();
 
       var queryIds = self.idsByMode(queries);
-      if (queryIds != null && queryIds.length == 1) 
-        if (self.isMatchAllQuery(queryIds[0])) 
-          queryIds = null;
+      var qs = self.getQueryObjs(queryIds);
 
-      var hasQueries = (queryIds != null && queryIds.length > 0) || (_.isArray(stackedQueries) && stackedQueries.length > 0);
+      if (qs != null && qs.length == 1) 
+        if (self.isMatchAllQueryObj(qs[0])) 
+          qs = null;
+
+      var hasQueries = (qs != null && qs.length > 0) || (_.isArray(stackedQueries) && stackedQueries.length > 0);
       var shouldQueries = [];
       var must = null;
 
@@ -168,12 +284,12 @@ function (angular, _, config) {
         else
           highlight = null;
 
-        if (queryIds != null && queryIds.length > 0) {
-          _.each(queryIds, function (id) {
-            var q = self.getEjsObj(id);
-            if (_.isObject(q) && highlight != null) q = q.fields(highlight);
+        if (qs != null && qs.length > 0) {
+          _.each(qs, function (q) {
+            var qo = self.toEjsObj(q);
+            if (_.isObject(qo) && highlight != null) qo = qo.fields(highlight);
             if (must == null) must = ejs.BoolQuery();
-            must = must.should(q);
+            must = must.should(qo);
           });
         }
 

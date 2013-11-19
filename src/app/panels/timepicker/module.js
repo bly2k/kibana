@@ -25,7 +25,7 @@ function (angular, app, _, moment, kbn) {
   var module = angular.module('kibana.panels.timepicker', []);
   app.useModule(module);
 
-  module.controller('timepicker', function($scope, $modal, $q, filterSrv, dashboard) {
+  module.controller('timepicker', function($scope, $modal, $q, filterSrv) {
     $scope.panelMeta = {
       status  : "Stable",
       description : "A panel for controlling the time range filters. If you have time based data, "+
@@ -60,14 +60,6 @@ function (angular, app, _, moment, kbn) {
       minute: /^[0-5][0-9]$/,
       second: /^[0-5][0-9]$/,
       millisecond: /^[0-9]*$/
-    };
-
-    $scope.close_edit = function() {
-      var time = filterSrv.timeRange('last');
-      if (time) {
-        $scope.setAbsoluteTimeFilter(time);
-        dashboard.refresh();
-      }
     };
 
     $scope.$on('refresh', function(){$scope.init();});
@@ -132,6 +124,7 @@ function (angular, app, _, moment, kbn) {
       }
     */
     $scope.setAbsoluteTimeFilter = function (time) {
+
       // Create filter object
       var _filter = _.clone(time);
 
@@ -151,12 +144,11 @@ function (angular, app, _, moment, kbn) {
       // Update our representation
       $scope.time = getScopeTimeObj(time.from,time.to);
 
-      dashboard.refreshTimePickerNavigationSettings();
-
       return $scope.panel.filter_id;
     };
 
     $scope.setRelativeFilter = function(timespan) {
+
       $scope.panel.now = true;
       // Create filter object
       var _filter = {
@@ -174,8 +166,6 @@ function (angular, app, _, moment, kbn) {
 
       // Update our representation
       $scope.time = getScopeTimeObj(kbn.parseDate(_filter.from),new Date());
-
-      dashboard.refreshTimePickerNavigationSettings();
 
       return $scope.panel.filter_id;
     };

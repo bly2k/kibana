@@ -60,7 +60,6 @@ function (angular, app, _, kbn, moment) {
 
     // Set and populate defaults
     var _d = {
-      status  : "Stable",
       queries     : {
         mode        : 'all',
         ids         : []
@@ -124,7 +123,6 @@ function (angular, app, _, kbn, moment) {
     };
 
     var showModal = function(panel,type) {
-
       $scope.facetPanel = panel;
       $scope.facetType = type;
 
@@ -219,6 +217,12 @@ function (angular, app, _, kbn, moment) {
     };
 
     $scope.get_data = function(segment,query_id) {
+      var
+        _segment,
+        request,
+        boolQuery,
+        results;
+
       $scope.panel.error =  false;
 
       // Make sure we have everything for the request to complete
@@ -228,12 +232,10 @@ function (angular, app, _, kbn, moment) {
 
       $scope.panelMeta.loading = true;
 
-      $scope.panel.queries.ids = querySrv.idsByMode($scope.panel.queries);
-
-      var _segment = _.isUndefined(segment) ? 0 : segment;
+      _segment = _.isUndefined(segment) ? 0 : segment;
       $scope.segment = _segment;
 
-      var request = $scope.ejs.Request().indices(dashboard.indices[_segment]);
+      request = $scope.ejs.Request().indices(dashboard.indices[_segment]);
 
       var q = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.panel.queries.queryString, $scope.panel.highlight);
 
@@ -249,7 +251,7 @@ function (angular, app, _, kbn, moment) {
 
       $scope.populate_modal(request);
 
-      var results = request.doSearch();
+      results = request.doSearch();
 
       // Populate scope when we have results
       results.then(function(results) {
@@ -258,6 +260,7 @@ function (angular, app, _, kbn, moment) {
         if(_segment === 0) {
           $scope.hits = 0;
           $scope.data = [];
+          $scope.current_fields = [];
           query_id = $scope.query_id = new Date().getTime();
         }
 
@@ -269,17 +272,26 @@ function (angular, app, _, kbn, moment) {
 
         // Check that we're still on the same query, if not stop
         if($scope.query_id === query_id) {
-          $scope.data= $scope.data.concat(_.map(results.hits.hits, function(hit) {
-            var _h = _.clone(hit);
-            //_h._source = kbn.flatten_json(hit._source);
-            //_h.highlight = kbn.flatten_json(hit.highlight||{});
+
+          // This is exceptionally expensive, especially on events with a large number of fields
+          $scope.data = $scope.data.concat(_.map(results.hits.hits, function(hit) {
+            var
+              _h = _.clone(hit),
+              _p = _.omit(hit,'_source','sort','_score');
+
+            // _source is kind of a lie here, never display it, only select values from it
             _h.kibana = {
-              _source : kbn.flatten_json(hit._source),
+              _source : _.extend(kbn.flatten_json(hit._source),_p),
               highlight : kbn.flatten_json(hit.highlight||{})
             };
+
+            // Kind of cheating with the _.map here, but this is faster than kbn.get_all_fields
+            $scope.current_fields = $scope.current_fields.concat(_.keys(_h.kibana._source));
+
             return _h;
           }));
 
+          $scope.current_fields = _.uniq($scope.current_fields);
           $scope.hits += results.hits.total;
 
           // Sort the data
@@ -298,9 +310,6 @@ function (angular, app, _, kbn, moment) {
 
           // Keep only what we need for the set
           $scope.data = $scope.data.slice(0,$scope.panel.size * $scope.panel.pages);
-
-          // Populate current_fields list
-          $scope.current_fields = kbn.get_all_fields($scope.data);
 
         } else {
           return;

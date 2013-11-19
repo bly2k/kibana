@@ -1,0 +1,71 @@
+<div class="editor-row">
+  <div class="section">
+    <div class="editor-row">
+      <div class="editor-option">
+        <label class="small">Mode</label> 
+        <select ng-change="set_refresh(true)" class="input-small" ng-model="panel.stackMode" ng-options="f for f in ['manual', 'terms']"></select>
+      </div>
+      <div class="editor-option" ng-show="panel.stackMode == 'terms'">
+        <label class="small">Terms Field</label> 
+        <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackTermsField" ng-change="set_refresh(true)">
+      </div>
+      <div class="editor-option" ng-show="panel.stackMode == 'terms'">
+        <label class="small">Value Field</label>
+        <input type="text" class="input-small" bs-typeahead="fields.list" ng-model="panel.stackValueField" ng-change="set_refresh(true)">
+      </div>
+      <div class="editor-option" ng-show="panel.stackMode == 'terms'">
+        <label class="small">Length</label>
+        <input class="input-small" type="number" ng-model="panel.stackTermsSize" ng-change="set_refresh(true)">
+      </div>
+      <div class="span3" ng-show="panel.stackMode == 'terms'"> 
+        <label class="small">Sort</label> 
+        <select class="input-medium" ng-model="panel.stackTermsOrder" ng-options="f for f in ['count','reverse_count','term','reverse_term','total','reverse_total','min','reverse_min','max','reverse_max','mean','reverse_mean']" ng-change="set_refresh(true)"></select></span>
+      </div>
+    </div>
+    <div class="editor-row" ng-show="panel.stackMode == 'manual' && panel.stackCharts.length > 0">
+      <div class="editor-option">
+        <label class="small">Metric</label> 
+      </div>
+      <div class="editor-option">
+        <label class="small">Value Field</label>
+      </div>
+      <div class="editor-option">
+        <label class="small">Alias</label>
+      </div>
+      <div class="editor-option">
+        <label class="small">Value Script</label>
+      </div>
+      <div class="editor-option">
+        <label class="small">Querystring Filter</label>
+      </div>
+    </div>
+    <div class="editor-row" ng-repeat="item in panel.stackCharts" ng-show="panel.stackMode == 'manual'">
+      <div class="editor-option">
+        <select ng-change="set_refresh(true)" class="input-small" ng-model="item.mode" ng-options="f for f in ['count','min','mean','max','total']"></select>
+      </div>
+      <div class="editor-option">
+        <input ng-change="set_refresh(true)" placeholder="Start typing" bs-typeahead="fields.list" type="text" class="input-small" ng-model="item.value_field">
+      </div>
+      <div class="editor-option">
+        <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.alias">
+      </div>
+      <div class="editor-option">
+        <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.valueScript" ng-disabled="item.mode == 'count'">
+      </div>
+      <div class="editor-option">
+        <input ng-change="set_refresh(true)" type="text" class="input-small" ng-model="item.queryString">
+      </div>
+      <div class="editor-option">
+        <i ng-click="panel.stackCharts = _.without(panel.stackCharts,item); set_refresh(true);" class="pointer icon-remove" bs-tooltip="'Delete metric'"></i>
+        <i ng-click="_.move(panel.stackCharts,$index,$index-1); set_refresh(true);" ng-hide="$first" class="pointer icon-arrow-up"></i>
+        <i ng-click="_.move(panel.stackCharts,$index,$index+1); set_refresh(true);" ng-hide="$last" class="pointer icon-arrow-down"></i>
+      </div>
+      <div class="editor-option" ng-show="item.mode != 'count'">
+        <small>Note: In <strong>{{item.mode}}</strong> mode, the value field <strong>must</strong> be a numeric type</small>
+      </div>
+    </div>
+    <div class="editor-row" style="margin-bottom:10px;" ng-show="panel.stackMode == 'manual'">
+      <button class="btn btn-success " ng-click="addStackChart()" style="">Add Metric</button>
+    </div> 
+  </div>
+</div>
