@@ -261,11 +261,12 @@ function (angular, _, config, kbn) {
     }
 
     //returns { query, filter }
-    this.getQueryFilterParts = function (filterSrv, queries, queryString, highlight, stackedQueries) {
+    this.getQueryFilterParts = function (filterSrv, queries, queryString, highlight, stackedQueries, rankedQueries) {
       if (_.isUndefined(highlight)) highlight = null;
       if (_.isUndefined(stackedQueries)) stackedQueries = null;
+      if (_.isUndefined(rankedQueries)) rankedQueries = null;
 
-      var facetQuery = ejs.MatchAllQuery();
+      var facetQuery = null;
 
       var queryIds = self.idsByMode(queries);
       var qs = self.getQueryObjs(queryIds);
@@ -319,17 +320,30 @@ function (angular, _, config, kbn) {
       if (queries.mode != "index") facetFilter = filterSrv.getBoolFilter(filterSrv.ids);
       self.appendQueryStringFilter(facetFilter, queryString);
 
+      if (rankedQueries != null) {
+        facetQuery = ejs.BoolQuery();
+        if (_.isArray(rankedQueries)) {
+          _.each(rankedQueries, function(query) {
+            facetQuery = facetQuery.must(ejs.QueryStringQuery(query));
+          });
+        } 
+        else if (_.isString(rankedQueries)) {
+          facetQuery = facetQuery.must(ejs.QueryStringQuery(rankedQueries));
+        }
+      }
+
       //optimization: move query into filter
       if (highlight == null) {
+        //highlight off - optimize to filters
         if (must != null) facetFilter = facetFilter.must(ejs.QueryFilter(must).cache(true));
         _.each(shouldQueries, function (q) {
           facetFilter = facetFilter.should(ejs.QueryFilter(q).cache(true));
         });
-        facetQuery = ejs.MatchAllQuery();
       }
       else {
+        //highlight on - use queries
         if (must != null || shouldQueries.length > 0) {
-          facetQuery = ejs.BoolQuery();
+          if (facetQuery == null) facetQuery = ejs.BoolQuery();
           if (must != null) facetQuery = facetQuery.must(must);
           _.each(shouldQueries, function (q) {
             facetQuery = facetQuery.should(q);
@@ -340,6 +354,9 @@ function (angular, _, config, kbn) {
       //ensure we don't have an empty must clause
       if (facetFilter.must().length <= 0)
         facetFilter = facetFilter.must(ejs.MatchAllFilter());
+
+      if (facetQuery == null)
+        facetQuery = ejs.MatchAllQuery();
 
       var result = { query: facetQuery, filter: facetFilter };
 
@@ -385,8 +402,8 @@ function (angular, _, config, kbn) {
       return result;
     };
 
-    this.getFacetQuery = function (filterSrv, queries, queryString, highlight, stackedQueries) {
-      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString, highlight, stackedQueries);
+    this.getFacetQuery = function (filterSrv, queries, queryString, highlight, stackedQueries, rankedQueries) {
+      var filterParts = self.getQueryFilterParts(filterSrv, queries, queryString, highlight, stackedQueries, rankedQueries);
       var result = ejs.FilteredQuery(filterParts.query, filterParts.filter);
       return result;
     };

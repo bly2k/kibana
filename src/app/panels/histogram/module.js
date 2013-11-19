@@ -375,8 +375,12 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       });
     }
 
+    //returns an msearch request with 2 queries (1 - histogram, 2 - annotations)
     $scope.buildQuery = function(segment, _interval) {
+      var msr = $scope.ejs.MultiSearchRequest();
+
       var request = $scope.ejs.Request().indices(dashboard.indices[segment]);
+      msr.requests(request);
 
       var stackedQueries = [];
       
@@ -465,14 +469,34 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         });
       }
 
-      return request;
+      if($scope.panel.annotate.enable) {
+        request = $scope.ejs.Request().indices(dashboard.indices[segment]);
+        msr.requests(request);
+
+        fq = querySrv.getFacetQuery(filterSrv, $scope.panel.queries, $scope.getQueryStringFilter(), null, stackedQueries, $scope.panel.annotate.query || '*');
+        request = request.query(fq);
+
+        // This is a hack proposed by @boaz to work around the fact that we can't get
+        // to field data values directly, and we need timestamps as normalized longs
+        request = request.sort([
+          $scope.ejs.Sort($scope.panel.annotate.sort[0]).order($scope.panel.annotate.sort[1]),
+          $scope.ejs.Sort($scope.panel.time_field).desc()
+        ]);
+
+        request = request.size($scope.panel.annotate.size);
+      }
+
+      return msr;
     }
 
     $scope.runQuery = function(request, segment, query_id, _range, _interval) {
       var results = request.doSearch();
 
       // Populate scope when we have results
-      results.then(function(results) {
+      results.then(function(msresults) {
+        //histogram results
+        results = msresults.responses[0];
+
         $scope.panelMeta.loading = false;
         if(segment === 0) {
           $scope.hits = 0;
@@ -533,6 +557,33 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
             i++;
           });
+
+          if($scope.panel.annotate.enable) {
+            //annotation results
+            results = msresults.responses[1];
+
+            $scope.annotations = $scope.annotations.concat(_.map(results.hits.hits, function(hit) {
+              var _p = _.omit(hit,'_source','sort','_score');
+              var _h = _.extend(kbn.flatten_json(hit._source),_p);
+              return  {
+                min: hit.sort[1],
+                max: hit.sort[1],
+                eventType: "annotation",
+                title: null,
+                description: "<small><i class='icon-tag icon-flip-vertical'></i> "+
+                  _h[$scope.panel.annotate.field]+"</small><br>"+
+                  $scope.timeMoment(hit.sort[1]).format($scope.hoverTimeFormat(_interval)),
+                score: hit.sort[0]
+              };
+            }));
+            // Sort the data
+            $scope.annotations = _.sortBy($scope.annotations, function(v){
+              // Sort in reverse
+              return v.score*($scope.panel.annotate.sort[1] === 'desc' ? -1 : 1);
+            });
+            // And slice to the right size
+            $scope.annotations = $scope.annotations.slice(0,$scope.panel.annotate.size);
+          }
 
           // Tell the histogram directive to render.
           $scope.$emit('render');
@@ -650,6 +701,25 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       $scope.$emit('render');
     };
 
+    $scope.timeMoment = function(time) {
+      var result = $scope.panel.timezone === 'browser' ? moment(time) : moment.utc(time);
+      return result;
+    }
+
+    $scope.hoverTimeFormat = function(interval) {
+      var _int = kbn.interval_to_seconds(interval);
+      if(_int >= 2628000) {
+        return "MM/YYYY";
+      }
+      if(_int >= 86400) {
+        return "MM/DD/YYYY";
+      }
+      if(_int >= 60) {
+        return "HH:mm MM/DD";
+      }
+        
+      return "MM/DD HH:mm:ss";
+    }
   });
 
   module.directive('histogramChart', function(dashboard, filterSrv) {
@@ -762,6 +832,25 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
               }
             };
 
+            if(scope.panel.annotate.enable) {
+              options.events = {
+                levels: 1,
+                data: scope.annotations,
+                types: {
+                  'annotation': {
+                    level: 1,
+                    icon: {
+                      icon: "icon-tag icon-flip-vertical",
+                      size: 20,
+                      color: "#222",
+                      outline: "#bbb"
+                    }
+                  }
+                }
+                //xaxis: int    // the x axis to attach events to
+              };
+            }
+
             if(scope.panel.interactive) {
               options.selection = { mode: "x", color: '#666' };
             }
@@ -816,21 +905,6 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
           return "%H:%M:%S";
         }
 
-        function hover_time_format(interval) {
-          var _int = kbn.interval_to_seconds(interval);
-          if(_int >= 2628000) {
-            return "MM/YYYY";
-          }
-          if(_int >= 86400) {
-            return "MM/DD/YYYY";
-          }
-          if(_int >= 60) {
-            return "HH:mm MM/DD";
-          }
-        
-          return "MM/DD HH:mm:ss";
-        }
-
         var $tooltip = $('<div>');
         elem.bind("plothover", function (event, pos, item) {
           var group, value, timestamp;
@@ -848,9 +922,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
                 item.datapoint[1] - item.datapoint[2] :
                 item.datapoint[1];
 
-              timestamp = scope.panel.timezone === 'browser' ?
-                moment(item.datapoint[0]) :
-                moment.utc(item.datapoint[0]);
+              timestamp = scope.timeMoment(item.datapoint[0]);
 
               var formatted = $.number(value, scope.panel.decimals, scope.panel.decimalSeparator, scope.panel.commaSeparator);
               if (!_.isUndefined(scope.panel.formatString) && scope.panel.formatString != "")
@@ -858,7 +930,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
               $tooltip
                 .html(
-                  group + formatted + " @ " + timestamp.format(hover_time_format(scope.get_interval()))
+                  group + formatted + " @ " + timestamp.format(scope.hoverTimeFormat(scope.get_interval()))
                 )
                 .place_tt(pos.pageX, pos.pageY);
             });
