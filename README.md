@@ -52,3 +52,7 @@ Bettermap Panel:
 Query Panel:
 
 - Support ability to convert any query string into a filter
+
+Examples:
+
+![Example 1](/example1.jpg?raw=true)
