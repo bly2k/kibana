@@ -1,5 +1,11 @@
 Fork of Kibana 3 for Advanced Analytics
 
+Examples:
+
+![Example 1](/example1.jpg?raw=true)
+
+![Example 2](/example2.jpg?raw=true)
+
 Tutorial here:
 
 http://hibalo.com/blog/post/2013/08/11/Visual-Analytics-with-Elasticsearch-and-Kibana.aspx
@@ -53,6 +59,3 @@ Query Panel:
 
 - Support ability to convert any query string into a filter
 
-Examples:
-
-![Example 1](/example1.jpg?raw=true)
