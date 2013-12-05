@@ -1,3 +1,5 @@
+//source: http://vallandingham.me/bubble_charts_in_d3.html
+
 define([
   'angular',
   'app',

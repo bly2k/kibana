@@ -1,0 +1,5 @@
+<div class="panel-query-meta row-fluid" style="width:260px">
+  <div>
+    <i ng-repeat="color in querySrv.colors" class="pointer" ng-class="{'icon-circle-blank': getStackChartColor(item) == color,'icon-circle': getStackChartColor(item) != color}" ng-style="{color:color}" ng-click="setStackChartColor(item, color);set_refresh(true);dismiss();"> </i>
+  </div>
+</div>

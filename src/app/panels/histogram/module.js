@@ -129,7 +129,7 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         min: 0
       },
       alias: "",
-      stackCharts : [], //array of { mode: "count", value_field: "", alias: "", queryString: "", valueScript: "" }
+      stackCharts : [], //array of { mode: "count", value_field, alias, queryString, valueScript, color }
       decimals: 0,
       decimalSeparator: ".",
       commaSeparator: ",",
@@ -141,7 +141,8 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       stackTermsField: null,
       stackValueField: null,
       stackTermsSize: 10,
-      stackTermsOrder: "count"
+      stackTermsOrder: "count",
+      color: null
     };
 
     _.defaults($scope.panel,_d);
@@ -223,7 +224,8 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
         time_field: $scope.panel.time_field, 
         value_field: $scope.panel.value_field, 
         alias: $scope.panel.alias, 
-        queryString: $scope.panel.queries.queryString 
+        queryString: $scope.panel.queries.queryString,
+        color: $scope.panel.color
       };
       id = id - 1;
       return (id >= 0 && id < $scope.panel.stackCharts.length) ? $scope.panel.stackCharts[id] : null;
@@ -237,11 +239,45 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
       return !($scope.panel.queries.mode == "none" || $scope.panel.queries.mode == "index");
     }
 
-    $scope.getStackChartAlias = function (id) {
-      var item = $scope.getStackChartById(id);
-      if (item == null) return "";
+    $scope.indexOfStackChart = function(item) {
+      if (_.isUndefined(item) || item == null || !$scope.hasStackCharts()) return 0;
+      return _.indexOf($scope.panel.stackCharts, item) + 1;
+    }
+
+    $scope.setStackChartColor = function(item, color) {
+      var i = $scope.indexOfStackChart(item);
+      if (i <= 0) 
+        $scope.panel.color = color;
+      else
+        $scope.panel.stackCharts[i - 1].color = color;
+    }
+
+    $scope.getStackChartColor = function(item) {
+      if (!$scope.hasStackCharts()) return null;
+
+      if (_.isUndefined(item) || item == null) {
+        if (_.isNull($scope.panel.color) || $scope.panel.color == "")
+          return querySrv.colorAt(0);
+        else
+          return $scope.panel.color;
+      }
+
+      if (_.isUndefined(item.color) || _.isNull(item.color) || item.color == "") {
+        var i = $scope.indexOfStackChart(item);
+        var colorIndex = ($scope.panel.stackMode == "terms") ? parseInt(i) - 1 : parseInt(i);
+        return querySrv.colorAt(colorIndex);
+      }
+      else
+        return item.color;
+    }
+
+    $scope.getStackChartAlias = function (item) {
+      if (_.isUndefined(item) || item == null) return "";
     
       var result = item.alias;
+      if (result != null && result != "") return result;
+
+      result = item.queryString;
       if (result != null && result != "") return result;
 
       var valueField = item.mode == "count" ? $scope.panel.time_field : item.value_field;
@@ -252,16 +288,24 @@ function (angular, app, $, _, kbn, moment, timeSeries) {
 
     $scope.getQueryInfo = function (id) {
       if (!$scope.hasStackCharts()) {
-        var globalAlias = querySrv.list[id];
-        var alias = $scope.getStackChartAlias(0);
-        if (globalAlias.alias != null && globalAlias.alias != "") alias += " - " + globalAlias.alias;
-        return { alias: alias, color: globalAlias.color };
+        var q = querySrv.list[id];
+        var alias = $scope.panel.alias;
+        if (q.alias != null && q.alias != "") {
+          if (alias != "") alias += " - ";
+          alias += q.alias;
+        }
+        return { 
+          alias: alias, 
+          color: q.color, 
+          query: q.query
+        };
       }
       else {
-        var color = ($scope.panel.stackMode == "terms") ? parseInt(id) - 1 : parseInt(id);
+        var chart = $scope.getStackChartById(id);
         return { 
-          alias: $scope.getStackChartAlias(id), 
-          color: querySrv.colorAt(color) 
+          alias: $scope.getStackChartAlias(chart), 
+          color: $scope.getStackChartColor(chart),
+          query: chart.queryString
         };
       }
     }
